@@ -299,13 +299,13 @@ export default function Home() {
         let x, y, width, height;
 
         if (isHorizontal) {
-          // For horizontally merged cells (1-8, 26-33)
+          // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
           x = firstCell.x * cellSize;
           y = firstCell.y * cellSize;
           width = 2 * cellSize;
           height = cellSize;
         } else {
-          // For vertically merged cells (9-18, 19-25)
+          // For vertically merged cells (9-16, 17-18, 19-25, 43-50, 51-52, 53-59)
           x = firstCell.x * cellSize;
           y = firstCell.y * cellSize;
           width = cellSize;
@@ -318,7 +318,7 @@ export default function Home() {
 
         // Draw the border around the combined cell
         ctx.strokeStyle = "#333";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 0.5;
         ctx.strokeRect(x, y, width, height);
 
         // Draw the number in the center of the combined cell
@@ -374,13 +374,13 @@ export default function Home() {
       let targetX, targetY;
 
       if (isHorizontal) {
-        // For horizontally merged cells (1-8, 26-33)
+        // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
         targetX =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
         targetY =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
-        // For vertically merged cells (9-18, 19-25)
+        // For vertically merged cells (9-16, 17-18, 19-25, 43-50, 51-52, 53-59)
         targetX =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         targetY =
@@ -428,13 +428,13 @@ export default function Home() {
       piece.y = firstCell.y;
 
       if (isHorizontal) {
-        // For horizontally merged cells (1-8, 26-33)
+        // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
         piece.py =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
-        // For vertically merged cells (9-18, 19-25)
+        // For vertically merged cells (9-16, 17-18, 19-25, 43-50, 51-52, 53-59)
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         piece.py =
@@ -457,7 +457,7 @@ export default function Home() {
     if (moveToIndexRef.current) {
       // Calculate the target game cell number based on the current cell and dice roll
       const targetCellNumber = Math.min(
-        33, // Updated to 33 for the new path
+        68, // Updated to 68 for the complete path
         currentGameCellRef.current +
           parseInt(diceResultRef.current.innerText.split(": ")[1]),
       );
