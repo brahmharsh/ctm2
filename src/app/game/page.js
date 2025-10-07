@@ -250,13 +250,13 @@ export default function Home() {
         let x, y, width, height;
 
         if (isHorizontal) {
-          // For horizontally merged cells (1-8)
+          // For horizontally merged cells (1-8, 26-33)
           x = firstCell.x * cellSize;
           y = firstCell.y * cellSize;
           width = 2 * cellSize;
           height = cellSize;
         } else {
-          // For vertically merged cells (9-18)
+          // For vertically merged cells (9-18, 19-25)
           x = firstCell.x * cellSize;
           y = firstCell.y * cellSize;
           width = cellSize;
@@ -325,13 +325,13 @@ export default function Home() {
       let targetX, targetY;
 
       if (isHorizontal) {
-        // For horizontally merged cells (1-8)
+        // For horizontally merged cells (1-8, 26-33)
         targetX =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
         targetY =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
-        // For vertically merged cells (9-18)
+        // For vertically merged cells (9-18, 19-25)
         targetX =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         targetY =
@@ -379,13 +379,13 @@ export default function Home() {
       piece.y = firstCell.y;
 
       if (isHorizontal) {
-        // For horizontally merged cells (1-8)
+        // For horizontally merged cells (1-8, 26-33)
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
         piece.py =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
-        // For vertically merged cells (9-18)
+        // For vertically merged cells (9-18, 19-25)
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         piece.py =
@@ -408,7 +408,7 @@ export default function Home() {
     if (moveToIndexRef.current) {
       // Calculate the target game cell number based on the current cell and dice roll
       const targetCellNumber = Math.min(
-        18, // Updated to 18 for the new path
+        33, // Updated to 33 for the new path
         currentGameCellRef.current +
           parseInt(diceResultRef.current.innerText.split(": ")[1]),
       );
