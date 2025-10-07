@@ -36,6 +36,7 @@ export default function Home() {
     let path = [];
     let gameCells = {}; // Map of game cell numbers to path indices
     let piece = { x: 0, y: 0, px: 0, py: 0 };
+    let isMoving = false; // Track if piece is currently moving
 
     function buildPath() {
       path = [];
@@ -141,6 +142,43 @@ export default function Home() {
 
       //68 - going right (cell merged horizontally)
       gameCells[cellNumber++] = [389, 390]; // Cell 68
+
+      //Assign code number to tails
+      //for yellow tail (cells merged horizontally)
+      gameCells["Y1"] = [369, 370]; // Cell Y1
+      gameCells["Y2"] = [349, 350]; // Cell Y2
+      gameCells["Y3"] = [329, 330]; // Cell Y3
+      gameCells["Y4"] = [309, 310]; // Cell Y4
+      gameCells["Y5"] = [289, 290]; // Cell Y5
+      gameCells["Y6"] = [269, 270]; // Cell Y6
+      gameCells["Y7"] = [249, 250]; // Cell Y7
+
+      //for blue tail (cells merged vertically)
+      gameCells["B1"] = [198, 218]; // Cell B1
+      gameCells["B2"] = [197, 217]; // Cell B2
+      gameCells["B3"] = [196, 216]; // Cell B3
+      gameCells["B4"] = [195, 215]; // Cell B4
+      gameCells["B5"] = [194, 214]; // Cell B5
+      gameCells["B6"] = [193, 213]; // Cell B6
+      gameCells["B7"] = [192, 212]; // Cell B7
+
+      //for red tail (cells merged horizontally)
+      gameCells["R1"] = [29, 30]; // Cell R1
+      gameCells["R2"] = [49, 50]; // Cell R2
+      gameCells["R3"] = [69, 70]; // Cell R3
+      gameCells["R4"] = [89, 90]; // Cell R4
+      gameCells["R5"] = [109, 110]; // Cell R5
+      gameCells["R6"] = [129, 130]; // Cell R6
+      gameCells["R7"] = [149, 150]; // Cell R7
+
+      //for green tail (cells merged vertically)
+      gameCells["G1"] = [181, 201]; // Cell G1
+      gameCells["G2"] = [182, 202]; // Cell G2
+      gameCells["G3"] = [183, 203]; // Cell G3
+      gameCells["G4"] = [184, 204]; // Cell G4
+      gameCells["G5"] = [185, 205]; // Cell G5
+      gameCells["G6"] = [186, 206]; // Cell G6
+      gameCells["G7"] = [187, 207]; // Cell G7
     }
 
     function resizeCanvas() {
@@ -322,7 +360,7 @@ export default function Home() {
         }
 
         // Draw the background for the combined cell
-        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0)";
         ctx.fillRect(x, y, width, height);
 
         // Draw the border around the combined cell
@@ -368,53 +406,82 @@ export default function Home() {
     }
 
     function moveToGameCell(targetCellNumber) {
-      if (!gameCells[targetCellNumber]) return;
+      if (!gameCells[targetCellNumber] || isMoving) return;
 
-      // Get the indices for the target game cell
-      const targetIndices = gameCells[targetCellNumber];
-      // Calculate the center position of the combined cell
-      const firstCell = path[targetIndices[0]];
-      const secondCell = path[targetIndices[1]];
+      isMoving = true;
+      const currentCell = currentGameCellRef.current;
+      const stepsToMove = targetCellNumber - currentCell;
 
-      // Check if cells are horizontally or vertically aligned
-      const isHorizontal = firstCell.y === secondCell.y;
+      // Move step by step
+      let currentStep = 0;
 
-      const cellSize = canvas.width / window.devicePixelRatio / gridSize;
-      let targetX, targetY;
-
-      if (isHorizontal) {
-        // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
-        targetX =
-          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
-        targetY =
-          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
-      } else {
-        // For vertically merged cells (9-16, 17-18, 19-25, 43-50, 51-52, 53-59)
-        targetX =
-          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
-        targetY =
-          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
-      }
-
-      // Animate the piece to the target position
-      function animate() {
-        let dx = targetX - piece.px;
-        let dy = targetY - piece.py;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist > 2) {
-          piece.px += dx * 0.15;
-          piece.py += dy * 0.15;
-          drawBoard();
-          requestAnimationFrame(animate);
-        } else {
-          piece.px = targetX;
-          piece.py = targetY;
-          currentGameCellRef.current = targetCellNumber; // Update the ref
-          drawBoard();
+      function moveStep() {
+        if (currentStep >= stepsToMove) {
+          isMoving = false;
+          return;
         }
+
+        currentStep++;
+        const nextCellNumber = currentCell + currentStep;
+
+        if (!gameCells[nextCellNumber]) {
+          isMoving = false;
+          return;
+        }
+
+        // Get the indices for the next game cell
+        const targetIndices = gameCells[nextCellNumber];
+        // Calculate the center position of the combined cell
+        const firstCell = path[targetIndices[0]];
+        const secondCell = path[targetIndices[1]];
+
+        // Check if cells are horizontally or vertically aligned
+        const isHorizontal = firstCell.y === secondCell.y;
+
+        const cellSize = canvas.width / window.devicePixelRatio / gridSize;
+        let targetX, targetY;
+
+        if (isHorizontal) {
+          // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
+          targetX =
+            (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
+          targetY =
+            (firstCell.y * cellSize + secondCell.y * cellSize) / 2 +
+            cellSize / 2;
+        } else {
+          // For vertically merged cells (9-16, 17-18, 19-25, 43-50, 51-52, 53-59)
+          targetX =
+            (firstCell.x * cellSize + secondCell.x * cellSize) / 2 +
+            cellSize / 2;
+          targetY =
+            (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
+        }
+
+        // Animate the piece to the target position
+        function animate() {
+          let dx = targetX - piece.px;
+          let dy = targetY - piece.py;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist > 2) {
+            piece.px += dx * 0.3; // Increased speed for faster animation
+            piece.py += dy * 0.3;
+            drawBoard();
+            requestAnimationFrame(animate);
+          } else {
+            piece.px = targetX;
+            piece.py = targetY;
+            currentGameCellRef.current = nextCellNumber; // Update the ref
+            drawBoard();
+
+            // Move to the next step after a short delay
+            setTimeout(moveStep, 100); // Short delay between steps
+          }
+        }
+        animate();
       }
-      animate();
+
+      moveStep();
     }
 
     moveToIndexRef.current = moveToGameCell;
