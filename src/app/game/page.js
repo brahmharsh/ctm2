@@ -405,27 +405,33 @@ export default function Home() {
       ctx.fill();
     }
 
-    function moveToGameCell(targetCellNumber) {
-      if (!gameCells[targetCellNumber] || isMoving) return;
+    function moveToGameCell(targetCellNumber, onComplete) {
+      if (!gameCells[targetCellNumber]) {
+        if (onComplete) onComplete();
+        return;
+      }
+      if (isMoving && typeof onComplete === "undefined") return;
 
       isMoving = true;
       const currentCell = currentGameCellRef.current;
-      const stepsToMove = targetCellNumber - currentCell;
 
-      // Move step by step
-      let currentStep = 0;
+      const stepsToMove = (targetCellNumber - currentCell + 68) % 68;
+
+      let currentStepInMove = 0;
 
       function moveStep() {
-        if (currentStep >= stepsToMove) {
+        if (currentStepInMove >= stepsToMove) {
           isMoving = false;
+          if (onComplete) onComplete();
           return;
         }
 
-        currentStep++;
-        const nextCellNumber = currentCell + currentStep;
+        currentStepInMove++;
+        const nextCellNumber = ((currentCell + currentStepInMove - 1) % 68) + 1;
 
         if (!gameCells[nextCellNumber]) {
           isMoving = false;
+          if (onComplete) onComplete();
           return;
         }
 
@@ -485,8 +491,12 @@ export default function Home() {
     }
 
     // Function to move to home path cells step by step
-    function moveToHomePath(targetHomeCell, stepsRemaining) {
-      if (!gameCells[targetHomeCell] || isMoving) return;
+    function moveToHomePath(targetHomeCell, stepsRemaining, onComplete) {
+      if (!gameCells[targetHomeCell]) {
+        if (onComplete) onComplete();
+        return;
+      }
+      if (isMoving && typeof onComplete === "undefined") return;
 
       isMoving = true;
 
@@ -534,15 +544,8 @@ export default function Home() {
           isMoving = false;
           drawBoard();
 
-          // If there are more steps to move, continue to the next home cell
-          if (stepsRemaining > 1) {
-            const currentHomeNum = parseInt(targetHomeCell.substring(1));
-            const nextHomeCell =
-              targetHomeCell.substring(0, 1) + (currentHomeNum + 1);
-            setTimeout(
-              () => moveToHomePath(nextHomeCell, stepsRemaining - 1),
-              100,
-            );
+          if (onComplete) {
+            onComplete();
           }
         }
       }
@@ -587,10 +590,7 @@ export default function Home() {
         // Move further along home path
         const currentHomeNum = parseInt(currentCell.substring(1));
         const targetHomeNum = Math.min(7, currentHomeNum + steps);
-        const targetHomeCell = homePathPrefix + targetHomeNum;
-
-        // Move step by step through home path
-        let stepsToMove = targetHomeNum - currentHomeNum;
+        const stepsToMove = targetHomeNum - currentHomeNum;
         let currentStep = 0;
 
         function moveHomeStep() {
@@ -610,35 +610,42 @@ export default function Home() {
         return;
       }
 
-      // Check if piece is at or has passed the entry cell
-      if (currentCell >= entryCell) {
-        // Move to home path
-        const stepsIntoHome = currentCell === entryCell ? steps : steps - 1;
+      // Check if the move crosses the entry point
+      const distToEntry = (entryCell - currentCell + 68) % 68;
+
+      if (distToEntry < steps) {
+        // Enter home path
+        const stepsToEntry = distToEntry;
+        const stepsIntoHome = steps - stepsToEntry;
         const targetHomeNum = Math.min(7, stepsIntoHome);
-        if (targetHomeNum > 0) {
-          const targetHomeCell = homePathPrefix + targetHomeNum;
 
-          // Move step by step through home path
-          let currentStep = 0;
-
-          function moveHomeStep() {
-            if (currentStep >= targetHomeNum) return;
-
-            currentStep++;
-            const nextHomeCell = homePathPrefix + currentStep;
-            moveToHomePath(nextHomeCell, 1);
-
-            // Continue to next step after a delay
-            if (currentStep < targetHomeNum) {
-              setTimeout(moveHomeStep, 300);
-            }
-          }
-
-          moveHomeStep();
+        const moveSequence = [];
+        for (let i = 1; i <= stepsToEntry; i++) {
+          moveSequence.push(((currentCell + i - 1) % 68) + 1);
         }
+        for (let i = 1; i <= targetHomeNum; i++) {
+          moveSequence.push(homePathPrefix + i);
+        }
+
+        let currentMove = 0;
+        function executeMove() {
+          if (currentMove >= moveSequence.length) {
+            isMoving = false;
+            return;
+          }
+          const nextCell = moveSequence[currentMove];
+          currentMove++;
+
+          if (typeof nextCell === "string") {
+            moveToHomePath(nextCell, 1, executeMove);
+          } else {
+            moveToGameCell(nextCell, executeMove);
+          }
+        }
+        executeMove();
       } else {
         // Move on regular path
-        const targetCellNumber = Math.min(entryCell, currentCell + steps);
+        const targetCellNumber = ((currentCell + steps - 1) % 68) + 1;
         moveToGameCell(targetCellNumber);
       }
     }
