@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useGame } from "../hooks/useGame";
@@ -20,7 +19,7 @@ export default function Game() {
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
       <canvas
         ref={canvasRef}
-        className="border-2 border-gray-200 bg-white w-[90vmin] h-[90vmin]"
+        className="border-2 border-gray-200 bg-white w-[100vmin] h-[100vmin]"
       />
       <Controls
         diceResultRef={diceResultRef}
