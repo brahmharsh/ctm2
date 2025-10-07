@@ -19,7 +19,7 @@ export default function Game() {
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
       <canvas
         ref={canvasRef}
-        className="border-2 border-gray-200 bg-white w-[100vmin] h-[100vmin]"
+        className="bg-white w-[99vmin] h-[99vmin] border-t-2 border-l-2 border-neutral-200 border-b-2 border-r-2 border-neutral-500 shadow-inner rounded-2xl"
       />
       <Controls
         diceResultRef={diceResultRef}
