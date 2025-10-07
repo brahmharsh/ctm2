@@ -1,4 +1,3 @@
-
 import {
   COLORS,
   GRID_SIZE,
@@ -286,7 +285,27 @@ export function drawBoard(
     // Draw the border around the combined cell
     ctx.strokeStyle = "#333";
     ctx.lineWidth = 0.5;
-    ctx.strokeRect(x, y, width, height);
+
+    if (cellNum === 8) {
+      ctx.beginPath();
+      ctx.moveTo(x + width, y); // Start at top-right corner
+      ctx.lineTo(x + width, y + height); // Draw right border
+      ctx.lineTo(x, y + height); // Draw bottom border
+      ctx.lineTo(x, y); // Draw left border
+      ctx.lineTo(x + width / 2, y); // Draw top border of 251
+      ctx.stroke();
+    } else if (cellNum === 9) {
+      ctx.beginPath();
+      ctx.moveTo(x, y); // top-left
+      ctx.lineTo(x + width, y); // top
+      ctx.lineTo(x + width, y + height); // right
+      ctx.lineTo(x, y + height); // bottom
+      ctx.moveTo(x, y + height / 2); // move to middle-left
+      ctx.lineTo(x, y); // top-left half
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x, y, width, height);
+    }
 
     // Draw the number or a star in the center of the combined cell
     const cellCenterX = x + width / 2;
