@@ -484,7 +484,166 @@ export default function Home() {
       moveStep();
     }
 
-    moveToIndexRef.current = moveToGameCell;
+    // Function to move to home path cells step by step
+    function moveToHomePath(targetHomeCell, stepsRemaining) {
+      if (!gameCells[targetHomeCell] || isMoving) return;
+
+      isMoving = true;
+
+      // Get the indices for the home cell
+      const targetIndices = gameCells[targetHomeCell];
+      // Calculate the center position of the combined cell
+      const firstCell = path[targetIndices[0]];
+      const secondCell = path[targetIndices[1]];
+
+      // Check if cells are horizontally or vertically aligned
+      const isHorizontal = firstCell.y === secondCell.y;
+
+      const cellSize = canvas.width / window.devicePixelRatio / gridSize;
+      let targetX, targetY;
+
+      if (isHorizontal) {
+        // For horizontally merged cells
+        targetX =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
+        targetY =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      } else {
+        // For vertically merged cells
+        targetX =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        targetY =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
+      }
+
+      // Animate the piece to the target position
+      function animate() {
+        let dx = targetX - piece.px;
+        let dy = targetY - piece.py;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 2) {
+          piece.px += dx * 0.3; // Increased speed for faster animation
+          piece.py += dy * 0.3;
+          drawBoard();
+          requestAnimationFrame(animate);
+        } else {
+          piece.px = targetX;
+          piece.py = targetY;
+          currentGameCellRef.current = targetHomeCell; // Update the ref with home cell code
+          isMoving = false;
+          drawBoard();
+
+          // If there are more steps to move, continue to the next home cell
+          if (stepsRemaining > 1) {
+            const currentHomeNum = parseInt(targetHomeCell.substring(1));
+            const nextHomeCell =
+              targetHomeCell.substring(0, 1) + (currentHomeNum + 1);
+            setTimeout(
+              () => moveToHomePath(nextHomeCell, stepsRemaining - 1),
+              100,
+            );
+          }
+        }
+      }
+      animate();
+    }
+
+    // Modified function to handle both regular cells and home path
+    function movePiece(steps) {
+      if (isMoving) return;
+
+      const currentCell = currentGameCellRef.current;
+      let entryCell;
+      let homePathPrefix;
+
+      // Determine entry cell and home path prefix based on piece color
+      switch (pieceColor) {
+        case "yellow":
+          entryCell = 68;
+          homePathPrefix = "Y";
+          break;
+        case "blue":
+          entryCell = 17;
+          homePathPrefix = "B";
+          break;
+        case "red":
+          entryCell = 34;
+          homePathPrefix = "R";
+          break;
+        case "green":
+          entryCell = 51;
+          homePathPrefix = "G";
+          break;
+        default:
+          return;
+      }
+
+      // Check if piece is already on home path
+      if (
+        typeof currentCell === "string" &&
+        currentCell[0] === homePathPrefix
+      ) {
+        // Move further along home path
+        const currentHomeNum = parseInt(currentCell.substring(1));
+        const targetHomeNum = Math.min(7, currentHomeNum + steps);
+        const targetHomeCell = homePathPrefix + targetHomeNum;
+
+        // Move step by step through home path
+        let stepsToMove = targetHomeNum - currentHomeNum;
+        let currentStep = 0;
+
+        function moveHomeStep() {
+          if (currentStep >= stepsToMove) return;
+
+          currentStep++;
+          const nextHomeCell = homePathPrefix + (currentHomeNum + currentStep);
+          moveToHomePath(nextHomeCell, 1);
+
+          // Continue to next step after a delay
+          if (currentStep < stepsToMove) {
+            setTimeout(moveHomeStep, 300);
+          }
+        }
+
+        moveHomeStep();
+        return;
+      }
+
+      // Check if piece is at or has passed the entry cell
+      if (currentCell >= entryCell) {
+        // Move to home path
+        const stepsIntoHome = currentCell === entryCell ? steps : steps - 1;
+        const targetHomeNum = Math.min(7, stepsIntoHome);
+        if (targetHomeNum > 0) {
+          const targetHomeCell = homePathPrefix + targetHomeNum;
+
+          // Move step by step through home path
+          let currentStep = 0;
+
+          function moveHomeStep() {
+            if (currentStep >= targetHomeNum) return;
+
+            currentStep++;
+            const nextHomeCell = homePathPrefix + currentStep;
+            moveToHomePath(nextHomeCell, 1);
+
+            // Continue to next step after a delay
+            if (currentStep < targetHomeNum) {
+              setTimeout(moveHomeStep, 300);
+            }
+          }
+
+          moveHomeStep();
+        }
+      } else {
+        // Move on regular path
+        const targetCellNumber = Math.min(entryCell, currentCell + steps);
+        moveToGameCell(targetCellNumber);
+      }
+    }
+
+    moveToIndexRef.current = movePiece;
 
     function init() {
       buildPath();
@@ -531,13 +690,10 @@ export default function Home() {
     diceResultRef.current.innerText = `🎲 Dice: ${dice}`;
 
     if (moveToIndexRef.current) {
-      // Calculate the target game cell number based on the current cell and dice roll
-      const targetCellNumber = Math.min(
-        68, // Updated to 68 for the complete path
-        currentGameCellRef.current +
-          parseInt(diceResultRef.current.innerText.split(": ")[1]),
+      // Pass the dice value directly to the movePiece function
+      moveToIndexRef.current(
+        parseInt(diceResultRef.current.innerText.split(": ")[1]),
       );
-      moveToIndexRef.current(targetCellNumber);
     }
   };
 
