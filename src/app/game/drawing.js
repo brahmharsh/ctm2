@@ -286,26 +286,75 @@ export function drawBoard(
     ctx.strokeStyle = "#333";
     ctx.lineWidth = 0.5;
 
-    if (cellNum === 8) {
-      ctx.beginPath();
-      ctx.moveTo(x + width, y); // Start at top-right corner
-      ctx.lineTo(x + width, y + height); // Draw right border
-      ctx.lineTo(x, y + height); // Draw bottom border
-      ctx.lineTo(x, y); // Draw left border
-      ctx.lineTo(x + width / 2, y); // Draw top border of 251
-      ctx.stroke();
-    } else if (cellNum === 9) {
-      ctx.beginPath();
-      ctx.moveTo(x, y); // top-left
-      ctx.lineTo(x + width, y); // top
-      ctx.lineTo(x + width, y + height); // right
-      ctx.lineTo(x, y + height); // bottom
-      ctx.moveTo(x, y + height / 2); // move to middle-left
-      ctx.lineTo(x, y); // top-left half
-      ctx.stroke();
-    } else {
-      ctx.strokeRect(x, y, width, height);
+    ctx.beginPath();
+    switch (cellNum) {
+      case 8:
+        ctx.moveTo(x + width, y); // Start at top-right corner
+        ctx.lineTo(x + width, y + height); // Draw right border
+        ctx.lineTo(x, y + height); // Draw bottom border
+        ctx.lineTo(x, y); // Draw left border
+        ctx.lineTo(x + width / 2, y); // Draw top border of 251
+        break;
+      case 9:
+        ctx.moveTo(x, y); // top-left
+        ctx.lineTo(x + width, y); // top
+        ctx.lineTo(x + width, y + height); // right
+        ctx.lineTo(x, y + height); // bottom
+        ctx.moveTo(x, y + height / 2); // move to middle-left
+        ctx.lineTo(x, y); // top-left half
+        break;
+      case 25:
+        ctx.moveTo(x + width, y); // top-right
+        ctx.lineTo(x, y); // top
+        ctx.moveTo(x, y + height / 2); // middle-left
+        ctx.lineTo(x, y + height); // bottom-left
+        ctx.lineTo(x + width, y + height); // bottom
+        ctx.lineTo(x + width, y); // right
+        break;
+      case 26:
+        ctx.moveTo(x, y); // top-left
+        ctx.lineTo(x + width, y); // top
+        ctx.lineTo(x + width, y + height); // right
+        ctx.moveTo(x + width / 2, y + height); // middle-bottom
+        ctx.lineTo(x, y + height); // bottom-left
+        ctx.lineTo(x, y); // left
+        break;
+      case 42:
+        ctx.moveTo(x, y); // top-left
+        ctx.lineTo(x + width, y); // top
+        ctx.lineTo(x + width, y + height); // right
+        ctx.lineTo(x + width / 2, y + height); // bottom-right
+        ctx.moveTo(x, y + height); // bottom-left
+        ctx.lineTo(x, y); // left
+        break;
+      case 43:
+        ctx.moveTo(x, y); // top-left
+        ctx.lineTo(x + width, y); // top
+        ctx.moveTo(x + width, y + height / 2); // middle-right
+        ctx.lineTo(x + width, y + height); // bottom-right
+        ctx.lineTo(x, y + height); // bottom
+        ctx.lineTo(x, y); // left
+        break;
+      case 59:
+        ctx.moveTo(x, y); // top-left
+        ctx.lineTo(x + width, y); // top
+        ctx.lineTo(x + width, y + height / 2); // top-right
+        ctx.moveTo(x + width, y + height); // bottom-right
+        ctx.lineTo(x, y + height); // bottom
+        ctx.lineTo(x, y); // left
+        break;
+      case 60:
+        ctx.moveTo(x + width / 2, y); // middle-top
+        ctx.lineTo(x + width, y); // top-right
+        ctx.lineTo(x + width, y + height); // right
+        ctx.lineTo(x, y + height); // bottom
+        ctx.lineTo(x, y); // left
+        break;
+      default:
+        ctx.rect(x, y, width, height);
+        break;
     }
+    ctx.stroke();
 
     // Draw the number or a star in the center of the combined cell
     const cellCenterX = x + width / 2;
