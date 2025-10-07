@@ -645,13 +645,23 @@ export default function Home() {
 
     moveToIndexRef.current = movePiece;
 
+    const startCells = {
+      blue: 22,
+      yellow: 5,
+      red: 39,
+      green: 56,
+    };
+
     function init() {
       buildPath();
       resizeCanvas();
       const cellSize = canvas.width / window.devicePixelRatio / gridSize;
 
-      // Position the piece at the center of the first game cell
-      const firstCellIndices = gameCells[1];
+      // Get the starting cell based on the piece color
+      const startCell = startCells[pieceColor] || 1;
+
+      // Position the piece at the center of the starting game cell
+      const firstCellIndices = gameCells[startCell];
       const firstCell = path[firstCellIndices[0]];
       const secondCell = path[firstCellIndices[1]];
 
@@ -663,20 +673,20 @@ export default function Home() {
       piece.y = firstCell.y;
 
       if (isHorizontal) {
-        // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
+        // For horizontally merged cells
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
         piece.py =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
-        // For vertically merged cells (9-16, 17-18, 19-25, 43-50, 51-52, 53-59)
+        // For vertically merged cells
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         piece.py =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
       }
 
-      currentGameCellRef.current = 1; // Initialize the ref
+      currentGameCellRef.current = startCell; // Initialize the ref
       drawBoard();
     }
 
