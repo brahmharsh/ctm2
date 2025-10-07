@@ -195,6 +195,34 @@ export default function Home() {
       );
     }
 
+    function drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+      let rot = (Math.PI / 2) * 3;
+      let x = cx;
+      let y = cy;
+      let step = Math.PI / spikes;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - outerRadius);
+      for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+      }
+      ctx.lineTo(cx, cy - outerRadius);
+      ctx.closePath();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "black";
+      ctx.stroke();
+      ctx.fillStyle = "gold";
+      ctx.fill();
+    }
+
     function drawBoard() {
       const size = canvas.width / window.devicePixelRatio;
       const cellSize = size / gridSize;
@@ -207,6 +235,7 @@ export default function Home() {
         39: colors.red,
         56: colors.green,
       };
+      const safeCells = [12, 17, 29, 34, 46, 51, 63, 68];
 
       // Draw colored corners (6x6 squares)
       const cornerSize = 7;
@@ -310,7 +339,7 @@ export default function Home() {
       ctx.closePath();
       ctx.fill();
 
-      // Right triangle (Blue) - pointing right (toward top-right corner)
+      // Right triangle (Blue) - pointing right (toward top-right corner) -
       ctx.fillStyle = colors.blue;
       ctx.beginPath();
       ctx.moveTo(homeX + homeWidth / 2, centerY);
@@ -381,11 +410,16 @@ export default function Home() {
         ctx.lineWidth = 0.5;
         ctx.strokeRect(x, y, width, height);
 
-        // Draw the number in the center of the combined cell
+        // Draw the number or a star in the center of the combined cell
         ctx.fillStyle = "#333";
         const centerX = x + width / 2;
         const centerY = y + height / 2;
-        ctx.fillText(cellNumber, centerX, centerY);
+
+        if (safeCells.includes(cellNum)) {
+          drawStar(centerX, centerY, 5, cellSize / 4, cellSize / 8);
+        } else {
+          ctx.fillText(cellNumber, centerX, centerY);
+        }
       }
 
       // Draw debug cell numbers if debug mode is on
