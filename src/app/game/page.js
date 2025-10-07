@@ -22,10 +22,11 @@ export default function Home() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    let gridSize = 18; // Changed from 10 to 18
+    let gridSize = 20; // Changed from 10 to 18
     let path = [];
     let gameCells = {}; // Map of game cell numbers to path indices
     let piece = { x: 0, y: 0, px: 0, py: 0 };
+    let currentGameCell = 1; // Track current game cell number
 
     function buildPath() {
       path = [];
@@ -36,31 +37,20 @@ export default function Home() {
         path.push({ x: col, y: row, index: i });
       }
 
-      // Create game cells mapping
+      // Create game cells mapping (Path for piece movement)
       gameCells = {};
       let cellNumber = 1;
+      //1 to 8
+      gameCells[cellNumber++] = [391, 391];
+      gameCells[cellNumber++] = [371, 371];
+      gameCells[cellNumber++] = [351, 351];
+      gameCells[cellNumber++] = [331, 331];
+      gameCells[cellNumber++] = [311, 311];
+      gameCells[cellNumber++] = [291, 291];
+      gameCells[cellNumber++] = [271, 271];
+      gameCells[cellNumber++] = [251, 251];
 
-      // Start from bottom (cells 317 and 318 which are indices 316 and 317) and go upward
-      // Row 17 (bottom row) - cells 317 and 318 (indices 316 and 317)
-      gameCells[cellNumber++] = [316, 317];
-
-      // Row 16 - cells 299 and 300 (indices 298 and 299)
-      gameCells[cellNumber++] = [298, 299];
-
-      // Row 15 - cells 281 and 282 (indices 280 and 281)
-      gameCells[cellNumber++] = [280, 281];
-
-      // Row 14 - cells 263 and 264 (indices 262 and 263)
-      gameCells[cellNumber++] = [262, 263];
-
-      // Row 13 - cells 245 and 246 (indices 244 and 245)
-      gameCells[cellNumber++] = [244, 245];
-
-      // Row 12 - cells 227 and 228 (indices 226 and 227)
-      gameCells[cellNumber++] = [226, 227];
-
-      // Row 11 - cells 209 and 210 (indices 208 and 209)
-      gameCells[cellNumber++] = [208, 209];
+      //9 to 16
     }
 
     function resizeCanvas() {
@@ -83,7 +73,7 @@ export default function Home() {
       ctx.clearRect(0, 0, size, size);
 
       // Draw colored corners (6x6 squares)
-      const cornerSize = 6;
+      const cornerSize = 7;
 
       // Top left - Red
       ctx.fillStyle = colors.red;
@@ -133,9 +123,9 @@ export default function Home() {
       ctx.fillStyle = colors.red;
       ctx.fillRect(
         (homeStartX + 1) * cellSize,
-        (homeStartY - 6) * cellSize,
+        (homeStartY - 7) * cellSize,
         2 * cellSize,
-        6 * cellSize,
+        7 * cellSize,
       );
 
       // Blue tail (extending rightward from home)
@@ -143,7 +133,7 @@ export default function Home() {
       ctx.fillRect(
         (homeStartX + homeSize) * cellSize,
         (homeStartY + 1) * cellSize,
-        6 * cellSize,
+        7 * cellSize,
         2 * cellSize,
       );
 
@@ -153,15 +143,15 @@ export default function Home() {
         (homeStartX + 1) * cellSize,
         (homeStartY + homeSize) * cellSize,
         2 * cellSize,
-        6 * cellSize,
+        7 * cellSize,
       );
 
       // Green tail (extending leftward from home)
       ctx.fillStyle = colors.green;
       ctx.fillRect(
-        (homeStartX - 6) * cellSize,
+        (homeStartX - 7) * cellSize,
         (homeStartY + 1) * cellSize,
-        6 * cellSize,
+        7 * cellSize,
         2 * cellSize,
       );
 
@@ -263,7 +253,7 @@ export default function Home() {
           const cell = path[i];
           const x = cell.x * cellSize + cellSize / 2;
           const y = cell.y * cellSize + cellSize / 2;
-          ctx.fillText(cell.index + 1, x, y);
+          ctx.fillText(cell.index, x, y);
         }
       }
 
@@ -279,40 +269,35 @@ export default function Home() {
 
       // Get the indices for the target game cell
       const targetIndices = gameCells[targetCellNumber];
-      // Use the first index for the piece position
-      const targetIndex = targetIndices[0];
+      // Calculate the center position of the combined cell
+      const leftCell = path[targetIndices[0]];
+      const rightCell = path[targetIndices[1]];
 
-      let nextStep = pieceIndexRef.current + 1;
+      const cellSize = canvas.width / window.devicePixelRatio / gridSize;
+      const targetX =
+        (leftCell.x * cellSize + rightCell.x * cellSize) / 2 + cellSize;
+      const targetY =
+        (leftCell.y * cellSize + rightCell.y * cellSize) / 2 + cellSize / 2;
 
-      function step() {
-        if (pieceIndexRef.current >= targetIndex) return;
-        let cellSize = canvas.width / window.devicePixelRatio / gridSize;
-        let target = path[nextStep];
-        let targetX = target.x * cellSize + cellSize / 2;
-        let targetY = target.y * cellSize + cellSize / 2;
+      // Animate the piece to the target position
+      function animate() {
+        let dx = targetX - piece.px;
+        let dy = targetY - piece.py;
+        let dist = Math.sqrt(dx * dx + dy * dy);
 
-        function animate() {
-          let dx = targetX - piece.px;
-          let dy = targetY - piece.py;
-          let dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist > 2) {
-            piece.px += dx * 0.15;
-            piece.py += dy * 0.15;
-            drawBoard();
-            requestAnimationFrame(animate);
-          } else {
-            pieceIndexRef.current = nextStep; // ✅ persist new index
-            piece.px = targetX;
-            piece.py = targetY;
-            drawBoard();
-            nextStep++;
-            if (pieceIndexRef.current < targetIndex) setTimeout(step, 1);
-          }
+        if (dist > 2) {
+          piece.px += dx * 0.15;
+          piece.py += dy * 0.15;
+          drawBoard();
+          requestAnimationFrame(animate);
+        } else {
+          piece.px = targetX;
+          piece.py = targetY;
+          currentGameCell = targetCellNumber;
+          drawBoard();
         }
-        animate();
       }
-      step();
+      animate();
     }
 
     moveToIndexRef.current = moveToGameCell;
@@ -321,11 +306,21 @@ export default function Home() {
       buildPath();
       resizeCanvas();
       const cellSize = canvas.width / window.devicePixelRatio / gridSize;
-      pieceIndexRef.current = 316; // Start at the first game cell (index 316)
-      piece.x = path[316].x;
-      piece.y = path[316].y;
-      piece.px = path[316].x * cellSize + cellSize / 2;
-      piece.py = path[316].y * cellSize + cellSize / 2;
+
+      // Position the piece at the center of the first game cell
+      const firstCellIndices = gameCells[1];
+      const leftCell = path[firstCellIndices[0]];
+      const rightCell = path[firstCellIndices[1]];
+
+      pieceIndexRef.current = firstCellIndices[0];
+      piece.x = leftCell.x;
+      piece.y = leftCell.y;
+      piece.px =
+        (leftCell.x * cellSize + rightCell.x * cellSize) / 2 + cellSize;
+      piece.py =
+        (leftCell.y * cellSize + rightCell.y * cellSize) / 2 + cellSize / 2;
+
+      currentGameCell = 1;
       drawBoard();
     }
 
@@ -339,25 +334,12 @@ export default function Home() {
     diceResultRef.current.innerText = `🎲 Dice: ${dice}`;
 
     if (moveToIndexRef.current) {
-      // Find the current game cell number based on the piece position
-      let currentCellNumber = 1;
-      for (const [cellNum, indices] of Object.entries({
-        1: [316, 317],
-        2: [298, 299],
-        3: [280, 281],
-        4: [262, 263],
-        5: [244, 245],
-        6: [226, 227],
-        7: [208, 209],
-      })) {
-        if (indices.includes(pieceIndexRef.current)) {
-          currentCellNumber = parseInt(cellNum);
-          break;
-        }
-      }
-
-      const targetCellNumber = currentCellNumber + dice;
-      moveToIndexRef.current(targetCellNumber); // ✅ move to game cell
+      // Calculate the target game cell number based on the current cell and dice roll
+      const targetCellNumber = Math.min(
+        7,
+        parseInt(diceResultRef.current.innerText.split(": ")[1]) + 1,
+      );
+      moveToIndexRef.current(targetCellNumber);
     }
   };
 
