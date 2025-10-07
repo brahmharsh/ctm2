@@ -7,6 +7,7 @@ export default function Home() {
   const diceResultRef = useRef(null);
   const moveToIndexRef = useRef(null);
   const pieceIndexRef = useRef(0); // <-- persist piece position
+  const currentGameCellRef = useRef(1); // Track current game cell number
   const [debug, setDebug] = useState(true); // Debug state to show/hide cell numbers
 
   // Global color definitions
@@ -26,7 +27,6 @@ export default function Home() {
     let path = [];
     let gameCells = {}; // Map of game cell numbers to path indices
     let piece = { x: 0, y: 0, px: 0, py: 0 };
-    let currentGameCell = 1; // Track current game cell number
 
     function buildPath() {
       path = [];
@@ -40,17 +40,26 @@ export default function Home() {
       // Create game cells mapping (Path for piece movement)
       gameCells = {};
       let cellNumber = 1;
-      //1 to 8
-      gameCells[cellNumber++] = [391, 391];
-      gameCells[cellNumber++] = [371, 371];
-      gameCells[cellNumber++] = [351, 351];
-      gameCells[cellNumber++] = [331, 331];
-      gameCells[cellNumber++] = [311, 311];
-      gameCells[cellNumber++] = [291, 291];
-      gameCells[cellNumber++] = [271, 271];
-      gameCells[cellNumber++] = [251, 251];
 
-      //9 to 16
+      // 1 to 8 - Vertical path going up (cells merged horizontally)
+      gameCells[cellNumber++] = [391, 391]; // Cell 1
+      gameCells[cellNumber++] = [371, 371]; // Cell 2
+      gameCells[cellNumber++] = [351, 351]; // Cell 3
+      gameCells[cellNumber++] = [331, 331]; // Cell 4
+      gameCells[cellNumber++] = [311, 311]; // Cell 5
+      gameCells[cellNumber++] = [291, 291]; // Cell 6
+      gameCells[cellNumber++] = [271, 271]; // Cell 7
+      gameCells[cellNumber++] = [251, 251]; // Cell 8
+
+      // 9 to 16 - Horizontal path going right (cells merged vertically)
+      gameCells[cellNumber++] = [232, 252]; // Cell 9
+      gameCells[cellNumber++] = [233, 253]; // Cell 10
+      gameCells[cellNumber++] = [234, 254]; // Cell 11
+      gameCells[cellNumber++] = [235, 255]; // Cell 12
+      gameCells[cellNumber++] = [236, 256]; // Cell 13
+      gameCells[cellNumber++] = [237, 257]; // Cell 14
+      gameCells[cellNumber++] = [238, 258]; // Cell 15
+      gameCells[cellNumber++] = [239, 259]; // Cell 16
     }
 
     function resizeCanvas() {
@@ -209,14 +218,27 @@ export default function Home() {
       // Draw game cell numbers
       for (const [cellNumber, indices] of Object.entries(gameCells)) {
         // Get the two cells
-        const leftCell = path[indices[0]];
-        const rightCell = path[indices[1]];
+        const firstCell = path[indices[0]];
+        const secondCell = path[indices[1]];
 
-        // Calculate the position and size of the combined cell
-        const x = leftCell.x * cellSize;
-        const y = leftCell.y * cellSize;
-        const width = 2 * cellSize;
-        const height = cellSize;
+        // Check if cells are horizontally or vertically aligned
+        const isHorizontal = firstCell.y === secondCell.y;
+
+        let x, y, width, height;
+
+        if (isHorizontal) {
+          // For horizontally merged cells (1-8)
+          x = firstCell.x * cellSize;
+          y = firstCell.y * cellSize;
+          width = 2 * cellSize;
+          height = cellSize;
+        } else {
+          // For vertically merged cells (9-16)
+          x = firstCell.x * cellSize;
+          y = firstCell.y * cellSize;
+          width = cellSize;
+          height = 2 * cellSize;
+        }
 
         // Draw the background for the combined cell
         ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
@@ -270,14 +292,28 @@ export default function Home() {
       // Get the indices for the target game cell
       const targetIndices = gameCells[targetCellNumber];
       // Calculate the center position of the combined cell
-      const leftCell = path[targetIndices[0]];
-      const rightCell = path[targetIndices[1]];
+      const firstCell = path[targetIndices[0]];
+      const secondCell = path[targetIndices[1]];
+
+      // Check if cells are horizontally or vertically aligned
+      const isHorizontal = firstCell.y === secondCell.y;
 
       const cellSize = canvas.width / window.devicePixelRatio / gridSize;
-      const targetX =
-        (leftCell.x * cellSize + rightCell.x * cellSize) / 2 + cellSize;
-      const targetY =
-        (leftCell.y * cellSize + rightCell.y * cellSize) / 2 + cellSize / 2;
+      let targetX, targetY;
+
+      if (isHorizontal) {
+        // For horizontally merged cells (1-8)
+        targetX =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
+        targetY =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      } else {
+        // For vertically merged cells (9-16)
+        targetX =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        targetY =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
+      }
 
       // Animate the piece to the target position
       function animate() {
@@ -293,7 +329,7 @@ export default function Home() {
         } else {
           piece.px = targetX;
           piece.py = targetY;
-          currentGameCell = targetCellNumber;
+          currentGameCellRef.current = targetCellNumber; // Update the ref
           drawBoard();
         }
       }
@@ -309,18 +345,31 @@ export default function Home() {
 
       // Position the piece at the center of the first game cell
       const firstCellIndices = gameCells[1];
-      const leftCell = path[firstCellIndices[0]];
-      const rightCell = path[firstCellIndices[1]];
+      const firstCell = path[firstCellIndices[0]];
+      const secondCell = path[firstCellIndices[1]];
+
+      // Check if cells are horizontally or vertically aligned
+      const isHorizontal = firstCell.y === secondCell.y;
 
       pieceIndexRef.current = firstCellIndices[0];
-      piece.x = leftCell.x;
-      piece.y = leftCell.y;
-      piece.px =
-        (leftCell.x * cellSize + rightCell.x * cellSize) / 2 + cellSize;
-      piece.py =
-        (leftCell.y * cellSize + rightCell.y * cellSize) / 2 + cellSize / 2;
+      piece.x = firstCell.x;
+      piece.y = firstCell.y;
 
-      currentGameCell = 1;
+      if (isHorizontal) {
+        // For horizontally merged cells (1-8)
+        piece.px =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
+        piece.py =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      } else {
+        // For vertically merged cells (9-16)
+        piece.px =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        piece.py =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
+      }
+
+      currentGameCellRef.current = 1; // Initialize the ref
       drawBoard();
     }
 
@@ -336,8 +385,9 @@ export default function Home() {
     if (moveToIndexRef.current) {
       // Calculate the target game cell number based on the current cell and dice roll
       const targetCellNumber = Math.min(
-        7,
-        parseInt(diceResultRef.current.innerText.split(": ")[1]) + 1,
+        16, // Updated to 16 for the new path
+        currentGameCellRef.current +
+          parseInt(diceResultRef.current.innerText.split(": ")[1]),
       );
       moveToIndexRef.current(targetCellNumber);
     }
