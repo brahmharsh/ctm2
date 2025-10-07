@@ -42,14 +42,14 @@ export default function Home() {
       let cellNumber = 1;
 
       // 1 to 8 - Vertical path going up (cells merged horizontally)
-      gameCells[cellNumber++] = [391, 391]; // Cell 1
-      gameCells[cellNumber++] = [371, 371]; // Cell 2
-      gameCells[cellNumber++] = [351, 351]; // Cell 3
-      gameCells[cellNumber++] = [331, 331]; // Cell 4
-      gameCells[cellNumber++] = [311, 311]; // Cell 5
-      gameCells[cellNumber++] = [291, 291]; // Cell 6
-      gameCells[cellNumber++] = [271, 271]; // Cell 7
-      gameCells[cellNumber++] = [251, 251]; // Cell 8
+      gameCells[cellNumber++] = [391, 392]; // Cell 1
+      gameCells[cellNumber++] = [371, 372]; // Cell 2
+      gameCells[cellNumber++] = [351, 352]; // Cell 3
+      gameCells[cellNumber++] = [331, 332]; // Cell 4
+      gameCells[cellNumber++] = [311, 312]; // Cell 5
+      gameCells[cellNumber++] = [291, 292]; // Cell 6
+      gameCells[cellNumber++] = [271, 272]; // Cell 7
+      gameCells[cellNumber++] = [251, 252]; // Cell 8
 
       // 9 to 16 - Horizontal path going right (cells merged vertically)
       gameCells[cellNumber++] = [232, 252]; // Cell 9
@@ -60,6 +60,29 @@ export default function Home() {
       gameCells[cellNumber++] = [237, 257]; // Cell 14
       gameCells[cellNumber++] = [238, 258]; // Cell 15
       gameCells[cellNumber++] = [239, 259]; // Cell 16
+
+      // 17 to 18 - Vertical path going up (cells merged vertically)
+      gameCells[cellNumber++] = [199, 219]; // Cell 17
+      gameCells[cellNumber++] = [159, 179]; // Cell 18
+
+      //19 to 25 - Horizontal path going right (cells merged vertically)
+      gameCells[cellNumber++] = [158, 178]; // Cell 19
+      gameCells[cellNumber++] = [157, 177]; // Cell 20
+      gameCells[cellNumber++] = [156, 176]; // Cell 21
+      gameCells[cellNumber++] = [155, 175]; // Cell 22
+      gameCells[cellNumber++] = [154, 174]; // Cell 23
+      gameCells[cellNumber++] = [153, 173]; // Cell 24
+      gameCells[cellNumber++] = [152, 172]; // Cell 25
+
+      // 26 to 33 - Vertical path going up (cells merged horizontally)
+      gameCells[cellNumber++] = [151, 152]; // Cell 26
+      gameCells[cellNumber++] = [131, 132]; // Cell 27
+      gameCells[cellNumber++] = [111, 112]; // Cell 28
+      gameCells[cellNumber++] = [91, 92]; // Cell 29
+      gameCells[cellNumber++] = [71, 72]; // Cell 30
+      gameCells[cellNumber++] = [51, 52]; // Cell 31
+      gameCells[cellNumber++] = [31, 32]; // Cell 32
+      gameCells[cellNumber++] = [11, 12]; // Cell 33
     }
 
     function resizeCanvas() {
@@ -233,7 +256,7 @@ export default function Home() {
           width = 2 * cellSize;
           height = cellSize;
         } else {
-          // For vertically merged cells (9-16)
+          // For vertically merged cells (9-18)
           x = firstCell.x * cellSize;
           y = firstCell.y * cellSize;
           width = cellSize;
@@ -308,7 +331,7 @@ export default function Home() {
         targetY =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
-        // For vertically merged cells (9-16)
+        // For vertically merged cells (9-18)
         targetX =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         targetY =
@@ -362,7 +385,7 @@ export default function Home() {
         piece.py =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
-        // For vertically merged cells (9-16)
+        // For vertically merged cells (9-18)
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         piece.py =
@@ -385,7 +408,7 @@ export default function Home() {
     if (moveToIndexRef.current) {
       // Calculate the target game cell number based on the current cell and dice roll
       const targetCellNumber = Math.min(
-        16, // Updated to 16 for the new path
+        18, // Updated to 18 for the new path
         currentGameCellRef.current +
           parseInt(diceResultRef.current.innerText.split(": ")[1]),
       );
