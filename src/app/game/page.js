@@ -535,7 +535,8 @@ export default function Home() {
         if (isHorizontal) {
           // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
           targetX =
-            (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
+            (firstCell.x * cellSize + secondCell.x * cellSize) / 2 +
+            cellSize / 2;
           targetY =
             (firstCell.y * cellSize + secondCell.y * cellSize) / 2 +
             cellSize / 2;
@@ -545,7 +546,8 @@ export default function Home() {
             (firstCell.x * cellSize + secondCell.x * cellSize) / 2 +
             cellSize / 2;
           targetY =
-            (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
+            (firstCell.y * cellSize + secondCell.y * cellSize) / 2 +
+            cellSize / 2;
         }
 
         // Animate the piece to the target position
@@ -600,7 +602,7 @@ export default function Home() {
       if (isHorizontal) {
         // For horizontally merged cells
         targetX =
-          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         targetY =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
@@ -608,7 +610,7 @@ export default function Home() {
         targetX =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         targetY =
-          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       }
 
       // Animate the piece to the target position
@@ -767,7 +769,7 @@ export default function Home() {
       if (isHorizontal) {
         // For horizontally merged cells
         piece.px =
-          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize;
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         piece.py =
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       } else {
@@ -775,7 +777,7 @@ export default function Home() {
         piece.px =
           (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
         piece.py =
-          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize;
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       }
 
       currentGameCellRef.current = startCell; // Initialize the ref
