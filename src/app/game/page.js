@@ -8,7 +8,7 @@ export default function Home() {
   const moveToIndexRef = useRef(null);
   const pieceIndexRef = useRef(0); // <-- persist piece position
   const currentGameCellRef = useRef(1); // Track current game cell number
-  const [debug, setDebug] = useState(true); // Debug state to show/hide cell numbers
+  const [debug, setDebug] = useState(false); // Debug state to show/hide cell numbers
   const [pieceColor, setPieceColor] = useState(""); // State to store piece color
 
   // Global color definitions
@@ -200,6 +200,14 @@ export default function Home() {
       const cellSize = size / gridSize;
       ctx.clearRect(0, 0, size, size);
 
+      // Define start cell colors
+      const startCellColors = {
+        5: colors.yellow,
+        22: colors.blue,
+        39: colors.red,
+        56: colors.green,
+      };
+
       // Draw colored corners (6x6 squares)
       const cornerSize = 7;
 
@@ -360,7 +368,12 @@ export default function Home() {
         }
 
         // Draw the background for the combined cell
-        ctx.fillStyle = "rgba(255, 255, 255, 0)";
+        const cellNum = parseInt(cellNumber);
+        if (startCellColors[cellNum]) {
+          ctx.fillStyle = startCellColors[cellNum];
+        } else {
+          ctx.fillStyle = "rgba(255, 255, 255, 0)";
+        }
         ctx.fillRect(x, y, width, height);
 
         // Draw the border around the combined cell
@@ -400,9 +413,12 @@ export default function Home() {
 
       // Draw piece with the assigned color
       ctx.fillStyle = colors[pieceColor];
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(piece.px, piece.py, cellSize / 3, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
     }
 
     function moveToGameCell(targetCellNumber, onComplete) {
