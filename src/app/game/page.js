@@ -10,6 +10,8 @@ export default function Home() {
   const currentGameCellRef = useRef(1); // Track current game cell number
   const [debug, setDebug] = useState(false); // Debug state to show/hide cell numbers
   const [pieceColor, setPieceColor] = useState(""); // State to store piece color
+  const [imageLoaded, setImageLoaded] = useState(false); // Track if image is loaded
+  const avatarImageRef = useRef(null); // Ref to store the avatar image
 
   // Global color definitions
   const colors = {
@@ -26,6 +28,38 @@ export default function Home() {
     const randomColor =
       colorOptions[Math.floor(Math.random() * colorOptions.length)];
     setPieceColor(randomColor);
+  }, []);
+
+  // Load avatar image
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/avatar.png";
+    img.onload = () => {
+      avatarImageRef.current = img;
+      setImageLoaded(true);
+    };
+    img.onerror = () => {
+      console.error("Failed to load avatar image");
+      // Try with a placeholder if the image fails to load
+      const canvas = document.createElement("canvas");
+      canvas.width = 100;
+      canvas.height = 100;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#888";
+      ctx.fillRect(0, 0, 100, 100);
+      ctx.fillStyle = "#fff";
+      ctx.font = "40px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("👤", 50, 50);
+
+      const placeholderImg = new Image();
+      placeholderImg.src = canvas.toDataURL();
+      placeholderImg.onload = () => {
+        avatarImageRef.current = placeholderImg;
+        setImageLoaded(true);
+      };
+    };
   }, []);
 
   useEffect(() => {
@@ -523,6 +557,75 @@ export default function Home() {
       ctx.stroke();
 
       ctx.restore();
+
+      // Draw avatars in corner circles (outside the rotated context)
+      if (imageLoaded && avatarImageRef.current) {
+        const avatarSize = circleRadius * 1.6; // Make avatar slightly smaller than circle
+
+        // Top left - Red corner
+        x = 0 + cornerPixelSize / 2;
+        y = 0 + cornerPixelSize / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(
+          avatarImageRef.current,
+          x - avatarSize / 2,
+          y - avatarSize / 2,
+          avatarSize,
+          avatarSize,
+        );
+        ctx.restore();
+
+        // Top right - Blue corner
+        x = (gridSize - cornerSize) * cellSize + cornerPixelSize / 2;
+        y = 0 + cornerPixelSize / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(
+          avatarImageRef.current,
+          x - avatarSize / 2,
+          y - avatarSize / 2,
+          avatarSize,
+          avatarSize,
+        );
+        ctx.restore();
+
+        // Bottom left - Green corner
+        x = 0 + cornerPixelSize / 2;
+        y = (gridSize - cornerSize) * cellSize + cornerPixelSize / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(
+          avatarImageRef.current,
+          x - avatarSize / 2,
+          y - avatarSize / 2,
+          avatarSize,
+          avatarSize,
+        );
+        ctx.restore();
+
+        // Bottom right - Yellow corner
+        x = (gridSize - cornerSize) * cellSize + cornerPixelSize / 2;
+        y = (gridSize - cornerSize) * cellSize + cornerPixelSize / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(
+          avatarImageRef.current,
+          x - avatarSize / 2,
+          y - avatarSize / 2,
+          avatarSize,
+          avatarSize,
+        );
+        ctx.restore();
+      }
     }
 
     function moveToGameCell(targetCellNumber, onComplete) {
@@ -822,7 +925,7 @@ export default function Home() {
     init();
     window.addEventListener("resize", init);
     return () => window.removeEventListener("resize", init);
-  }, [debug, pieceColor]); // Add pieceColor as a dependency
+  }, [debug, pieceColor, imageLoaded]); // Add imageLoaded as a dependency
 
   const rollDice = () => {
     const dice = Math.floor(Math.random() * 6) + 1;
@@ -875,6 +978,9 @@ export default function Home() {
       </div>
       <p ref={diceResultRef} className="mt-2 text-lg font-semibold"></p>
       <p className="mt-1 text-sm text-gray-600">Piece Color: {pieceColor}</p>
+      {!imageLoaded && (
+        <p className="mt-1 text-sm text-orange-600">Loading avatar image...</p>
+      )}
     </div>
   );
 }
