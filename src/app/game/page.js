@@ -260,39 +260,74 @@ export default function Home() {
       };
       const safeCells = [12, 17, 29, 34, 46, 51, 63, 68];
 
-      // Draw colored corners (6x6 squares)
+      // Draw colored corners (7x7 squares) with circles
       const cornerSize = 7;
+      const cornerPixelSize = cornerSize * cellSize;
+      const circleRadius = 2 * cellSize;
 
       // Top left - Red
+      let x = 0;
+      let y = 0;
       ctx.fillStyle = colors.red;
-      ctx.fillRect(0, 0, cornerSize * cellSize, cornerSize * cellSize);
+      ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.arc(
+        x + cornerPixelSize / 2,
+        y + cornerPixelSize / 2,
+        circleRadius,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
 
       // Top right - Blue
+      x = (gridSize - cornerSize) * cellSize;
+      y = 0;
       ctx.fillStyle = colors.blue;
-      ctx.fillRect(
-        (gridSize - cornerSize) * cellSize,
+      ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.arc(
+        x + cornerPixelSize / 2,
+        y + cornerPixelSize / 2,
+        circleRadius,
         0,
-        cornerSize * cellSize,
-        cornerSize * cellSize,
+        Math.PI * 2,
       );
+      ctx.fill();
 
       // Bottom left - Green
+      x = 0;
+      y = (gridSize - cornerSize) * cellSize;
       ctx.fillStyle = colors.green;
-      ctx.fillRect(
+      ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.arc(
+        x + cornerPixelSize / 2,
+        y + cornerPixelSize / 2,
+        circleRadius,
         0,
-        (gridSize - cornerSize) * cellSize,
-        cornerSize * cellSize,
-        cornerSize * cellSize,
+        Math.PI * 2,
       );
+      ctx.fill();
 
       // Bottom right - Yellow
+      x = (gridSize - cornerSize) * cellSize;
+      y = (gridSize - cornerSize) * cellSize;
       ctx.fillStyle = colors.yellow;
-      ctx.fillRect(
-        (gridSize - cornerSize) * cellSize,
-        (gridSize - cornerSize) * cellSize,
-        cornerSize * cellSize,
-        cornerSize * cellSize,
+      ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.arc(
+        x + cornerPixelSize / 2,
+        y + cornerPixelSize / 2,
+        circleRadius,
+        0,
+        Math.PI * 2,
       );
+      ctx.fill();
 
       // Draw home area (4x4 grey square in center)
       const homeSize = 4;
