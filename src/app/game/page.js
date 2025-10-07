@@ -65,7 +65,7 @@ export default function Home() {
       gameCells[cellNumber++] = [199, 219]; // Cell 17
       gameCells[cellNumber++] = [159, 179]; // Cell 18
 
-      //19 to 25 - Horizontal path going right (cells merged vertically)
+      //19 to 25 - Horizontal path going left (cells merged vertically)
       gameCells[cellNumber++] = [158, 178]; // Cell 19
       gameCells[cellNumber++] = [157, 177]; // Cell 20
       gameCells[cellNumber++] = [156, 176]; // Cell 21
@@ -83,6 +83,55 @@ export default function Home() {
       gameCells[cellNumber++] = [51, 52]; // Cell 31
       gameCells[cellNumber++] = [31, 32]; // Cell 32
       gameCells[cellNumber++] = [11, 12]; // Cell 33
+
+      //34 to 35 - Horizontal path going left (cells merged horizontally)
+      gameCells[cellNumber++] = [9, 10]; // Cell 34
+      gameCells[cellNumber++] = [7, 8]; // Cell 35
+
+      //36 to 42 - Vertical path going down (cells merged horizontally)
+      gameCells[cellNumber++] = [27, 28]; // Cell 36
+      gameCells[cellNumber++] = [47, 48]; // Cell 37
+      gameCells[cellNumber++] = [67, 68]; // Cell 38
+      gameCells[cellNumber++] = [87, 88]; // Cell 39
+      gameCells[cellNumber++] = [107, 108]; // Cell 40
+      gameCells[cellNumber++] = [127, 128]; // Cell 41
+      gameCells[cellNumber++] = [147, 148]; // Cell 42
+
+      //43 to 50 - Horizontal path going left (cells merged vertically)
+      gameCells[cellNumber++] = [147, 167]; // Cell 43
+      gameCells[cellNumber++] = [146, 166]; // Cell 44
+      gameCells[cellNumber++] = [145, 165]; // Cell 45
+      gameCells[cellNumber++] = [144, 164]; // Cell 46
+      gameCells[cellNumber++] = [143, 163]; // Cell 47
+      gameCells[cellNumber++] = [142, 162]; // Cell 48
+      gameCells[cellNumber++] = [141, 161]; // Cell 49
+      gameCells[cellNumber++] = [140, 160]; // Cell 50
+
+      // 51 to 52 - Vertical path going down (cells merged vertically)
+      gameCells[cellNumber++] = [180, 200]; // Cell 51
+      gameCells[cellNumber++] = [220, 240]; // Cell 52
+
+      //53 to 59 - Horizontal path going right (cells merged vertically)
+      gameCells[cellNumber++] = [221, 241]; // Cell 53
+      gameCells[cellNumber++] = [222, 242]; // Cell 54
+      gameCells[cellNumber++] = [223, 243]; // Cell 55
+      gameCells[cellNumber++] = [224, 244]; // Cell 56
+      gameCells[cellNumber++] = [225, 245]; // Cell 57
+      gameCells[cellNumber++] = [226, 246]; // Cell 58
+      gameCells[cellNumber++] = [227, 247]; // Cell 59
+
+      //60 to 67 - Vertical path going down (cells merged horizontally)
+      gameCells[cellNumber++] = [247, 248]; // Cell 60
+      gameCells[cellNumber++] = [267, 268]; // Cell 61
+      gameCells[cellNumber++] = [287, 288]; // Cell 62
+      gameCells[cellNumber++] = [307, 308]; // Cell 63
+      gameCells[cellNumber++] = [327, 328]; // Cell 64
+      gameCells[cellNumber++] = [347, 348]; // Cell 65
+      gameCells[cellNumber++] = [367, 368]; // Cell 66
+      gameCells[cellNumber++] = [387, 388]; // Cell 67
+
+      //68 - going right (cell merged horizontally)
+      gameCells[cellNumber++] = [389, 390]; // Cell 68
     }
 
     function resizeCanvas() {
