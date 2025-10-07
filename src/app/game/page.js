@@ -9,6 +9,7 @@ export default function Home() {
   const pieceIndexRef = useRef(0); // <-- persist piece position
   const currentGameCellRef = useRef(1); // Track current game cell number
   const [debug, setDebug] = useState(true); // Debug state to show/hide cell numbers
+  const [pieceColor, setPieceColor] = useState(""); // State to store piece color
 
   // Global color definitions
   const colors = {
@@ -18,6 +19,14 @@ export default function Home() {
     yellow: "rgba(234, 179, 8, 0.7)", // Consistent yellow
     black: "rgba(0, 0, 0, 1)", // Black for pieces
   };
+
+  // Initialize random piece color on component mount
+  useEffect(() => {
+    const colorOptions = ["red", "blue", "green", "yellow"];
+    const randomColor =
+      colorOptions[Math.floor(Math.random() * colorOptions.length)];
+    setPieceColor(randomColor);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -351,8 +360,8 @@ export default function Home() {
         }
       }
 
-      // Draw piece
-      ctx.fillStyle = colors.black;
+      // Draw piece with the assigned color
+      ctx.fillStyle = colors[pieceColor];
       ctx.beginPath();
       ctx.arc(piece.px, piece.py, cellSize / 3, 0, Math.PI * 2);
       ctx.fill();
@@ -448,7 +457,7 @@ export default function Home() {
     init();
     window.addEventListener("resize", init);
     return () => window.removeEventListener("resize", init);
-  }, [debug]); // Add debug as a dependency to redraw when it changes
+  }, [debug, pieceColor]); // Add pieceColor as a dependency
 
   const rollDice = () => {
     const dice = Math.floor(Math.random() * 6) + 1;
@@ -467,6 +476,13 @@ export default function Home() {
 
   const toggleDebug = () => {
     setDebug(!debug);
+  };
+
+  const changeColor = () => {
+    const colorOptions = ["red", "blue", "green", "yellow"];
+    const randomColor =
+      colorOptions[Math.floor(Math.random() * colorOptions.length)];
+    setPieceColor(randomColor);
   };
 
   return (
@@ -488,8 +504,15 @@ export default function Home() {
         >
           {debug ? "Hide" : "Show"} Debug
         </button>
+        <button
+          onClick={changeColor}
+          className="px-6 py-2 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700"
+        >
+          🎨 Change Color
+        </button>
       </div>
       <p ref={diceResultRef} className="mt-2 text-lg font-semibold"></p>
+      <p className="mt-1 text-sm text-gray-600">Piece Color: {pieceColor}</p>
     </div>
   );
 }
