@@ -373,6 +373,25 @@ export function drawBoard(
     ctx.restore();
   }
 
+  // Draw diagonal lines
+  const drawDiagonal = (cellIndex, start, end) => {
+    const cell = path[cellIndex];
+    const x = cell.x * cellSize;
+    const y = cell.y * cellSize;
+    ctx.beginPath();
+    ctx.moveTo(x + start.x * cellSize, y + start.y * cellSize);
+    ctx.lineTo(x + end.x * cellSize, y + end.y * cellSize);
+    ctx.stroke();
+  };
+
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 0.5;
+
+  drawDiagonal(252, { x: 0, y: 0 }, { x: 1, y: 1 }); // top-left to bottom-right
+  drawDiagonal(152, { x: 0, y: 1 }, { x: 1, y: 0 }); // bottom-left to top-right
+  drawDiagonal(147, { x: 0, y: 0 }, { x: 1, y: 1 }); // top-left to bottom-right
+  drawDiagonal(247, { x: 1, y: 0 }, { x: 0, y: 1 }); // top-right to bottom-left
+
   // Draw debug cell numbers if debug mode is on
   if (debug) {
     // Draw grid
