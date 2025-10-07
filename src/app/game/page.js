@@ -228,6 +228,29 @@ export default function Home() {
       const cellSize = size / gridSize;
       ctx.clearRect(0, 0, size, size);
 
+      ctx.save();
+
+      // Rotate board based on player color
+      const centerX = size / 2;
+      const centerY = size / 2;
+      ctx.translate(centerX, centerY);
+
+      let rotation = 0;
+      switch (pieceColor) {
+        case "red":
+          rotation = Math.PI; // 180 degrees
+          break;
+        case "blue":
+          rotation = Math.PI / 2; // 90 degrees
+          break;
+        case "green":
+          rotation = -Math.PI / 2; // -90 degrees
+          break;
+        // Yellow is default, no rotation
+      }
+      ctx.rotate(rotation);
+      ctx.translate(-centerX, -centerY);
+
       // Define start cell colors
       const startCellColors = {
         5: colors.yellow,
@@ -327,13 +350,13 @@ export default function Home() {
       const homeHeight = homeSize * cellSize;
 
       // Calculate center point
-      const centerX = homeX + homeWidth / 2;
-      const centerY = homeY + homeHeight / 2;
+      const triangleCenterX = homeX + homeWidth / 2;
+      const triangleCenterY = homeY + homeHeight / 2;
 
       // Top triangle (Red) - pointing up (toward top-left corner)
       ctx.fillStyle = colors.red;
       ctx.beginPath();
-      ctx.moveTo(centerX, homeY + homeHeight / 2);
+      ctx.moveTo(triangleCenterX, homeY + homeHeight / 2);
       ctx.lineTo(homeX, homeY);
       ctx.lineTo(homeX + homeWidth, homeY);
       ctx.closePath();
@@ -342,7 +365,7 @@ export default function Home() {
       // Right triangle (Blue) - pointing right (toward top-right corner) -
       ctx.fillStyle = colors.blue;
       ctx.beginPath();
-      ctx.moveTo(homeX + homeWidth / 2, centerY);
+      ctx.moveTo(homeX + homeWidth / 2, triangleCenterY);
       ctx.lineTo(homeX + homeWidth, homeY);
       ctx.lineTo(homeX + homeWidth, homeY + homeHeight);
       ctx.closePath();
@@ -351,7 +374,7 @@ export default function Home() {
       // Bottom triangle (Yellow) - pointing down (toward bottom-right corner)
       ctx.fillStyle = colors.yellow;
       ctx.beginPath();
-      ctx.moveTo(centerX, homeY + homeHeight / 2);
+      ctx.moveTo(triangleCenterX, homeY + homeHeight / 2);
       ctx.lineTo(homeX, homeY + homeHeight);
       ctx.lineTo(homeX + homeWidth, homeY + homeHeight);
       ctx.closePath();
@@ -360,7 +383,7 @@ export default function Home() {
       // Left triangle (Green) - pointing left (toward bottom-left corner)
       ctx.fillStyle = colors.green;
       ctx.beginPath();
-      ctx.moveTo(homeX + homeWidth / 2, centerY);
+      ctx.moveTo(homeX + homeWidth / 2, triangleCenterY);
       ctx.lineTo(homeX, homeY);
       ctx.lineTo(homeX, homeY + homeHeight);
       ctx.closePath();
@@ -412,13 +435,13 @@ export default function Home() {
 
         // Draw the number or a star in the center of the combined cell
         ctx.fillStyle = "#333";
-        const centerX = x + width / 2;
-        const centerY = y + height / 2;
+        const cellCenterX = x + width / 2;
+        const cellCenterY = y + height / 2;
 
         if (safeCells.includes(cellNum)) {
-          drawStar(centerX, centerY, 5, cellSize / 4, cellSize / 8);
+          drawStar(cellCenterX, cellCenterY, 5, cellSize / 4, cellSize / 8);
         } else {
-          ctx.fillText(cellNumber, centerX, centerY);
+          ctx.fillText(cellNumber, cellCenterX, cellCenterY);
         }
       }
 
@@ -453,6 +476,8 @@ export default function Home() {
       ctx.arc(piece.px, piece.py, cellSize / 3, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+
+      ctx.restore();
     }
 
     function moveToGameCell(targetCellNumber, onComplete) {
