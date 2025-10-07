@@ -568,7 +568,7 @@ export default function Home() {
             drawBoard();
 
             // Move to the next step after a short delay
-            setTimeout(moveStep, 100); // Short delay between steps
+            setTimeout(moveStep, 10); // Short delay between steps
           }
         }
         animate();
