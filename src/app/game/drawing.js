@@ -1,3 +1,4 @@
+// /drawing.js
 import {
   COLORS,
   GRID_SIZE,
@@ -5,6 +6,8 @@ import {
   HOME_SIZE,
   START_CELLS,
   SAFE_CELLS,
+  PLAYERS,
+  PLAYER_POSITIONS,
 } from "./constants";
 
 // Utility functions
@@ -345,14 +348,36 @@ const BoardComponents = {
     }
   },
 
-  drawPiece(ctx, piece, cellSize, pieceColor) {
+  drawPiece(ctx, piece, cellSize, pieceColor, isCurrentPlayer = false) {
+    // Make the current player's piece slightly larger and with a different border
+    const radius = isCurrentPlayer ? cellSize / 2.5 : cellSize / 3;
+    const borderWidth = isCurrentPlayer ? 3 : 2;
+    const borderColor = isCurrentPlayer ? "#FFD700" : "white";
+
     ctx.fillStyle = COLORS[pieceColor];
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = borderWidth;
     ctx.beginPath();
-    ctx.arc(piece.px, piece.py, cellSize / 3, 0, Math.PI * 2);
+    ctx.arc(piece.px, piece.py, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    // Add a small indicator for the current player
+    if (isCurrentPlayer) {
+      ctx.fillStyle = "white";
+      ctx.font = `${radius}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("★", piece.px, piece.py);
+    }
+  },
+
+  drawPlayerName(ctx, x, y, playerName, cellSize) {
+    ctx.fillStyle = "#000";
+    ctx.font = `bold ${cellSize / 4}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(playerName, x, y);
   },
 
   drawAvatar(ctx, x, y, circleRadius, avatarImageRef) {
@@ -371,19 +396,9 @@ const BoardComponents = {
     );
     ctx.restore();
   },
-
-  // Add this function to BoardComponents object
-  drawPlayerName(ctx, x, y, playerName, cellSize) {
-    ctx.fillStyle = "#000";
-    ctx.font = `bold ${cellSize / 4}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(playerName, x, y);
-  },
 };
 
 // Main drawing function
-// Update the drawBoard function to accept players parameter
 export function drawBoard(
   ctx,
   canvas,
@@ -391,7 +406,7 @@ export function drawBoard(
   gameCells,
   path,
   debug,
-  piece,
+  pieces,
   imageLoaded,
   avatarImageRef,
   players = [],
@@ -432,28 +447,16 @@ export function drawBoard(
 
   const cornerPixelSize = CORNER_SIZE * cellSize;
 
-  // Draw corners and their circles
-  const corners = [
-    { x: 0, y: 0, color: COLORS.red, playerId: "player_3" },
-    {
-      x: (GRID_SIZE - CORNER_SIZE) * cellSize,
-      y: 0,
-      color: COLORS.blue,
-      playerId: "player_2",
-    },
-    {
-      x: 0,
-      y: (GRID_SIZE - CORNER_SIZE) * cellSize,
-      color: COLORS.green,
-      playerId: "player_4",
-    },
-    {
-      x: (GRID_SIZE - CORNER_SIZE) * cellSize,
-      y: (GRID_SIZE - CORNER_SIZE) * cellSize,
-      color: COLORS.yellow,
-      playerId: "player_1",
-    },
-  ];
+  // Draw corners and their circles using player constants
+  const corners = Object.keys(PLAYER_POSITIONS).map((playerId) => {
+    const position = PLAYER_POSITIONS[playerId];
+    return {
+      x: position.x * cellSize,
+      y: position.y * cellSize,
+      color: COLORS[PLAYERS[playerId].color],
+      playerId: playerId,
+    };
+  });
 
   corners.forEach((corner) => {
     const { x, y, radius } = BoardComponents.drawAvatarBackgroundCircle(
@@ -525,8 +528,19 @@ export function drawBoard(
     BoardComponents.drawDebugCellNumbers(ctx, path, cellSize, rotation);
   }
 
-  // Draw piece
-  BoardComponents.drawPiece(ctx, piece, cellSize, pieceColor);
+  // Draw all pieces
+  if (pieces && Array.isArray(pieces)) {
+    pieces.forEach((piece) => {
+      const isCurrentPlayer = piece.color === pieceColor;
+      BoardComponents.drawPiece(
+        ctx,
+        piece,
+        cellSize,
+        piece.color,
+        isCurrentPlayer,
+      );
+    });
+  }
 
   ctx.restore();
 

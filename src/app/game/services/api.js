@@ -1,5 +1,5 @@
 // /services/api.js
-// Mock API service that simulates backend calls
+import { PLAYERS } from "../constants";
 
 // Simulate network delay
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -8,14 +8,6 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let gameState = {
   players: [],
   currentPlayerIndex: 0,
-};
-
-// Player color mapping
-const playerColors = {
-  player_1: "yellow",
-  player_2: "blue",
-  player_3: "red",
-  player_4: "green",
 };
 
 // Mock API endpoints
@@ -29,7 +21,7 @@ export const api = {
         ...gameState,
         players: gameState.players.map((player) => ({
           ...player,
-          color: playerColors[player.id],
+          color: PLAYERS[player.id].color,
         })),
       },
     };
@@ -58,8 +50,9 @@ export const api = {
     // Add player to game
     gameState.players.push({
       id: playerId,
-      color: playerColors[playerId],
+      color: PLAYERS[playerId].color,
       position: 0,
+      startCell: PLAYERS[playerId].startCell,
     });
 
     return {
@@ -67,13 +60,14 @@ export const api = {
       data: {
         player: {
           id: playerId,
-          color: playerColors[playerId],
+          color: PLAYERS[playerId].color,
+          startCell: PLAYERS[playerId].startCell,
         },
         gameState: {
           ...gameState,
           players: gameState.players.map((player) => ({
             ...player,
-            color: playerColors[player.id],
+            color: PLAYERS[player.id].color,
           })),
         },
       },
@@ -101,7 +95,7 @@ export const api = {
           ...gameState,
           players: gameState.players.map((player) => ({
             ...player,
-            color: playerColors[player.id],
+            color: PLAYERS[player.id].color,
           })),
         },
       },

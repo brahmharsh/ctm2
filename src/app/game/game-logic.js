@@ -1,5 +1,5 @@
-
-import { GRID_SIZE } from "./constants";
+// /game-logic.js
+import { GRID_SIZE, PLAYERS } from "./constants";
 
 export function buildPath() {
   const path = [];

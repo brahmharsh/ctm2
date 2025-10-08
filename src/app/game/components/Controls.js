@@ -14,6 +14,10 @@ export default function Controls({
   toggleDebug,
   changeColor,
 }) {
+  // Get the index of the current player for display
+  const currentPlayerIndex = players.findIndex((p) => p.id === playerId);
+  const playerNumber = currentPlayerIndex >= 0 ? currentPlayerIndex + 1 : 0;
+
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex gap-2 sm:flex-col">
@@ -42,9 +46,14 @@ export default function Controls({
         </button>
         <button
           onClick={changeColor}
-          className="px-6 py-2 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700"
+          disabled={players.length <= 1}
+          className={`px-6 py-2 rounded-lg shadow-md ${
+            players.length <= 1
+              ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+              : "bg-purple-600 text-white hover:bg-purple-700"
+          }`}
         >
-          🎨 Switch Player
+          🎨 Next Player ({playerNumber}/{players.length})
         </button>
       </div>
       <p ref={diceResultRef} className="mt-2 text-lg font-semibold"></p>
