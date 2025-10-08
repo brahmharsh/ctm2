@@ -55,18 +55,23 @@ const BoardComponents = {
     const outerCircleRadius = circleRadius * 0.3;
     const outerCircleDistance = circleRadius * 1;
 
+    // To rectangular positioning:
     const positions = [
-      { x: centerX, y: centerY - outerCircleDistance }, // Top
-      { x: centerX + outerCircleDistance, y: centerY }, // Right
-      { x: centerX, y: centerY + outerCircleDistance }, // Bottom
-      { x: centerX - outerCircleDistance, y: centerY }, // Left
+      { x: centerX - outerCircleDistance, y: centerY - outerCircleDistance }, // Top-left
+      { x: centerX + outerCircleDistance, y: centerY - outerCircleDistance }, // Top-right
+      { x: centerX - outerCircleDistance, y: centerY + outerCircleDistance }, // Bottom-left
+      { x: centerX + outerCircleDistance, y: centerY + outerCircleDistance }, // Bottom-right
     ];
 
     ctx.fillStyle = color;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"; // Border color
+    ctx.lineWidth = 2; // Border width
+
     positions.forEach((pos) => {
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, outerCircleRadius, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke(); // Draw the border
     });
   },
 
@@ -351,7 +356,7 @@ const BoardComponents = {
   },
 
   drawAvatar(ctx, x, y, circleRadius, avatarImageRef) {
-    const avatarSize = circleRadius * 1.6;
+    const avatarSize = circleRadius * 2;
 
     ctx.save();
     ctx.beginPath();
