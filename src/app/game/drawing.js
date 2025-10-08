@@ -371,9 +371,19 @@ const BoardComponents = {
     );
     ctx.restore();
   },
+
+  // Add this function to BoardComponents object
+  drawPlayerName(ctx, x, y, playerName, cellSize) {
+    ctx.fillStyle = "#000";
+    ctx.font = `bold ${cellSize / 4}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(playerName, x, y);
+  },
 };
 
 // Main drawing function
+// Update the drawBoard function to accept players parameter
 export function drawBoard(
   ctx,
   canvas,
@@ -384,6 +394,7 @@ export function drawBoard(
   piece,
   imageLoaded,
   avatarImageRef,
+  players = [],
 ) {
   const size = canvas.width / window.devicePixelRatio;
   const cellSize = size / GRID_SIZE;
@@ -423,13 +434,24 @@ export function drawBoard(
 
   // Draw corners and their circles
   const corners = [
-    { x: 0, y: 0, color: COLORS.red },
-    { x: (GRID_SIZE - CORNER_SIZE) * cellSize, y: 0, color: COLORS.blue },
-    { x: 0, y: (GRID_SIZE - CORNER_SIZE) * cellSize, color: COLORS.green },
+    { x: 0, y: 0, color: COLORS.red, playerId: "player_3" },
+    {
+      x: (GRID_SIZE - CORNER_SIZE) * cellSize,
+      y: 0,
+      color: COLORS.blue,
+      playerId: "player_2",
+    },
+    {
+      x: 0,
+      y: (GRID_SIZE - CORNER_SIZE) * cellSize,
+      color: COLORS.green,
+      playerId: "player_4",
+    },
     {
       x: (GRID_SIZE - CORNER_SIZE) * cellSize,
       y: (GRID_SIZE - CORNER_SIZE) * cellSize,
       color: COLORS.yellow,
+      playerId: "player_1",
     },
   ];
 
@@ -444,6 +466,20 @@ export function drawBoard(
     );
 
     BoardComponents.drawCornerCircles(ctx, x, y, corner.color, radius);
+
+    // Draw player name in debug mode
+    if (debug) {
+      const player = players.find((p) => p.id === corner.playerId);
+      if (player) {
+        BoardComponents.drawPlayerName(
+          ctx,
+          x,
+          y - radius - cellSize / 2,
+          player.id,
+          cellSize,
+        );
+      }
+    }
   });
 
   // Draw home area
@@ -502,6 +538,20 @@ export function drawBoard(
       const x = corner.x + cornerPixelSize / 2;
       const y = corner.y + cornerPixelSize / 2;
       BoardComponents.drawAvatar(ctx, x, y, circleRadius, avatarImageRef);
+
+      // Draw player name in debug mode
+      if (debug) {
+        const player = players.find((p) => p.id === corner.playerId);
+        if (player) {
+          BoardComponents.drawPlayerName(
+            ctx,
+            x,
+            y - circleRadius - cellSize / 2,
+            player.id,
+            cellSize,
+          );
+        }
+      }
     });
   }
 }

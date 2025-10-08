@@ -1,3 +1,4 @@
+// /components/Game.js
 "use client";
 
 import { useGame } from "../hooks/useGame";
@@ -10,6 +11,10 @@ export default function Game() {
     debug,
     pieceColor,
     imageLoaded,
+    isRolling,
+    players,
+    currentPlayer,
+    playerId,
     rollDice,
     toggleDebug,
     changeColor,
@@ -26,6 +31,10 @@ export default function Game() {
         debug={debug}
         pieceColor={pieceColor}
         imageLoaded={imageLoaded}
+        isRolling={isRolling}
+        players={players}
+        currentPlayer={currentPlayer}
+        playerId={playerId}
         rollDice={rollDice}
         toggleDebug={toggleDebug}
         changeColor={changeColor}

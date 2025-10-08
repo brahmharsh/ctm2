@@ -1,9 +1,10 @@
-
+// /hooks/useGame.js
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { buildPath } from "../game-logic";
 import { drawBoard } from "../drawing";
 import { GRID_SIZE, START_CELLS } from "../constants";
+import { api } from "../services/api";
 
 export function useGame() {
   const canvasRef = useRef(null);
@@ -11,15 +12,66 @@ export function useGame() {
   const [debug, setDebug] = useState(false);
   const [pieceColor, setPieceColor] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isRolling, setIsRolling] = useState(false);
+  const [players, setPlayers] = useState([]);
+  const [currentPlayer, setCurrentPlayer] = useState(null);
+  const [playerId, setPlayerId] = useState(null);
+  const [gameStarted, setGameStarted] = useState(false);
   const avatarImageRef = useRef(null);
   const moveToIndexRef = useRef(null);
 
+  // Initialize game and join as player_1
   useEffect(() => {
-    const colorOptions = ["red", "blue", "green", "yellow"];
-    const randomColor =
-      colorOptions[Math.floor(Math.random() * colorOptions.length)];
-    setPieceColor(randomColor);
+    const initializeGame = async () => {
+      try {
+        // Reset game first
+        await api.resetGame();
+
+        // Join as player_1
+        const response = await api.joinGame("player_1");
+        if (response.success) {
+          setPlayerId("player_1");
+          setPieceColor(response.data.player.color);
+          setPlayers(response.data.gameState.players);
+          setCurrentPlayer(response.data.gameState.players[0]);
+          setGameStarted(true);
+        }
+      } catch (error) {
+        console.error("Error initializing game:", error);
+      }
+    };
+
+    initializeGame();
   }, []);
+
+  // Simulate other players joining
+  useEffect(() => {
+    if (!gameStarted || players.length >= 4) return;
+
+    const simulatePlayersJoining = async () => {
+      const playerIds = ["player_2", "player_3", "player_4"];
+
+      for (const id of playerIds) {
+        if (players.length >= 4) break;
+
+        // Random delay before next player joins
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.random() * 2000 + 1000),
+        );
+
+        try {
+          const response = await api.joinGame(id);
+          if (response.success) {
+            setPlayers((prev) => [...prev, response.data.player]);
+          }
+        } catch (error) {
+          console.error(`Error adding ${id}:`, error);
+        }
+      }
+    };
+
+    simulatePlayersJoining();
+  }, [gameStarted, players.length]);
 
   useEffect(() => {
     const img = new Image();
@@ -52,6 +104,8 @@ export function useGame() {
   }, []);
 
   useEffect(() => {
+    if (!gameStarted || !pieceColor) return;
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const { path, gameCells } = buildPath();
@@ -85,6 +139,7 @@ export function useGame() {
         piece,
         imageLoaded,
         avatarImageRef,
+        players,
       );
     }
 
@@ -349,16 +404,40 @@ export function useGame() {
     init();
     window.addEventListener("resize", init);
     return () => window.removeEventListener("resize", init);
-  }, [debug, pieceColor, imageLoaded]);
+  }, [debug, pieceColor, imageLoaded, players]);
 
-  const rollDice = () => {
-    const dice = Math.floor(Math.random() * 6) + 1;
-    if (diceResultRef.current) {
-      diceResultRef.current.innerText = `🎲 Dice: ${dice}`;
-    }
+  const rollDice = async () => {
+    if (isRolling || !playerId) return;
 
-    if (moveToIndexRef.current) {
-      moveToIndexRef.current(dice);
+    setIsRolling(true);
+
+    try {
+      // Call the mock API
+      const response = await api.rollDice(playerId);
+
+      if (response.success && diceResultRef.current) {
+        diceResultRef.current.innerText = `🎲 Dice: ${response.data.dice}`;
+
+        // Update current player
+        const nextPlayer = players.find(
+          (p) => p.id === response.data.nextPlayer,
+        );
+        setCurrentPlayer(nextPlayer);
+
+        // Move the piece with the result from the server
+        if (moveToIndexRef.current) {
+          moveToIndexRef.current(response.data.dice);
+        }
+      } else if (!response.success && diceResultRef.current) {
+        diceResultRef.current.innerText = response.error;
+      }
+    } catch (error) {
+      console.error("Error rolling dice:", error);
+      if (diceResultRef.current) {
+        diceResultRef.current.innerText = "Error rolling dice";
+      }
+    } finally {
+      setIsRolling(false);
     }
   };
 
@@ -367,10 +446,15 @@ export function useGame() {
   };
 
   const changeColor = () => {
-    const colorOptions = ["red", "blue", "green", "yellow"];
-    const randomColor =
-      colorOptions[Math.floor(Math.random() * colorOptions.length)];
-    setPieceColor(randomColor);
+    // In multiplayer mode, color is determined by player ID
+    // This function now switches to a different player view
+    const availablePlayers = players.filter((p) => p.id !== playerId);
+    if (availablePlayers.length > 0) {
+      const randomPlayer =
+        availablePlayers[Math.floor(Math.random() * availablePlayers.length)];
+      setPlayerId(randomPlayer.id);
+      setPieceColor(randomPlayer.color);
+    }
   };
 
   return {
@@ -379,6 +463,10 @@ export function useGame() {
     debug,
     pieceColor,
     imageLoaded,
+    isRolling,
+    players,
+    currentPlayer,
+    playerId,
     rollDice,
     toggleDebug,
     changeColor,
