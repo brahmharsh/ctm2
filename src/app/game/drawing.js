@@ -38,7 +38,7 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
 
 // Drawing functions for board components
 const BoardComponents = {
-  drawCorner(ctx, x, y, size, color, cellSize) {
+  drawAvatarBackgroundCircle(ctx, x, y, size, color, cellSize) {
     ctx.fillStyle = color;
     ctx.fillRect(x, y, size, size);
 
@@ -434,7 +434,7 @@ export function drawBoard(
   ];
 
   corners.forEach((corner) => {
-    const { x, y, radius } = BoardComponents.drawCorner(
+    const { x, y, radius } = BoardComponents.drawAvatarBackgroundCircle(
       ctx,
       corner.x,
       corner.y,
