@@ -7,6 +7,7 @@ import {
   SAFE_CELLS,
 } from "./constants";
 
+// Utility functions
 function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
   let rot = (Math.PI / 2) * 3;
   let x = cx;
@@ -35,6 +36,339 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
   ctx.fill();
 }
 
+// Drawing functions for board components
+const BoardComponents = {
+  drawCorner(ctx, x, y, size, color, cellSize) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, size, size);
+
+    const circleRadius = 2 * cellSize;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, circleRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    return { x: x + size / 2, y: y + size / 2, radius: circleRadius };
+  },
+
+  drawCornerCircles(ctx, centerX, centerY, color, circleRadius) {
+    const outerCircleRadius = circleRadius * 0.3;
+    const outerCircleDistance = circleRadius * 1;
+
+    const positions = [
+      { x: centerX, y: centerY - outerCircleDistance }, // Top
+      { x: centerX + outerCircleDistance, y: centerY }, // Right
+      { x: centerX, y: centerY + outerCircleDistance }, // Bottom
+      { x: centerX - outerCircleDistance, y: centerY }, // Left
+    ];
+
+    ctx.fillStyle = color;
+    positions.forEach((pos) => {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, outerCircleRadius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  },
+
+  drawHomeArea(ctx, homeStartX, homeStartY, cellSize) {
+    ctx.fillStyle = "rgba(128, 128, 128, 0.5)";
+    ctx.fillRect(
+      homeStartX * cellSize,
+      homeStartY * cellSize,
+      HOME_SIZE * cellSize,
+      HOME_SIZE * cellSize,
+    );
+  },
+
+  drawColoredTail(ctx, homeStartX, homeStartY, cellSize, direction) {
+    const tailWidth = 2 * cellSize;
+    const tailLength = 7 * cellSize;
+
+    ctx.fillStyle = COLORS[direction];
+
+    switch (direction) {
+      case "red": // Upward
+        ctx.fillRect(
+          (homeStartX + 1) * cellSize,
+          (homeStartY - 7) * cellSize,
+          tailWidth,
+          tailLength,
+        );
+        break;
+      case "blue": // Rightward
+        ctx.fillRect(
+          (homeStartX + HOME_SIZE) * cellSize,
+          (homeStartY + 1) * cellSize,
+          tailLength,
+          tailWidth,
+        );
+        break;
+      case "yellow": // Downward
+        ctx.fillRect(
+          (homeStartX + 1) * cellSize,
+          (homeStartY + HOME_SIZE) * cellSize,
+          tailWidth,
+          tailLength,
+        );
+        break;
+      case "green": // Leftward
+        ctx.fillRect(
+          (homeStartX - 7) * cellSize,
+          (homeStartY + 1) * cellSize,
+          tailLength,
+          tailWidth,
+        );
+        break;
+    }
+  },
+
+  drawHomeTriangles(ctx, homeStartX, homeStartY, cellSize) {
+    const homeX = homeStartX * cellSize;
+    const homeY = homeStartY * cellSize;
+    const homeWidth = HOME_SIZE * cellSize;
+    const homeHeight = HOME_SIZE * cellSize;
+    const centerX = homeX + homeWidth / 2;
+    const centerY = homeY + homeHeight / 2;
+
+    // Top triangle (Red)
+    ctx.fillStyle = COLORS.red;
+    ctx.beginPath();
+    ctx.moveTo(centerX, homeY + homeHeight / 2);
+    ctx.lineTo(homeX, homeY);
+    ctx.lineTo(homeX + homeWidth, homeY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Right triangle (Blue)
+    ctx.fillStyle = COLORS.blue;
+    ctx.beginPath();
+    ctx.moveTo(homeX + homeWidth / 2, centerY);
+    ctx.lineTo(homeX + homeWidth, homeY);
+    ctx.lineTo(homeX + homeWidth, homeY + homeHeight);
+    ctx.closePath();
+    ctx.fill();
+
+    // Bottom triangle (Yellow)
+    ctx.fillStyle = COLORS.yellow;
+    ctx.beginPath();
+    ctx.moveTo(centerX, homeY + homeHeight / 2);
+    ctx.lineTo(homeX, homeY + homeHeight);
+    ctx.lineTo(homeX + homeWidth, homeY + homeHeight);
+    ctx.closePath();
+    ctx.fill();
+
+    // Left triangle (Green)
+    ctx.fillStyle = COLORS.green;
+    ctx.beginPath();
+    ctx.moveTo(homeX + homeWidth / 2, centerY);
+    ctx.lineTo(homeX, homeY);
+    ctx.lineTo(homeX, homeY + homeHeight);
+    ctx.closePath();
+    ctx.fill();
+  },
+
+  drawGameCell(
+    ctx,
+    cellNumber,
+    firstCell,
+    secondCell,
+    cellSize,
+    startCellColors,
+    rotation,
+  ) {
+    const isHorizontal = firstCell.y === secondCell.y;
+
+    let x, y, width, height;
+
+    if (isHorizontal) {
+      x = firstCell.x * cellSize;
+      y = firstCell.y * cellSize;
+      width = 2 * cellSize;
+      height = cellSize;
+    } else {
+      x = firstCell.x * cellSize;
+      y = firstCell.y * cellSize;
+      width = cellSize;
+      height = 2 * cellSize;
+    }
+
+    // Draw background
+    const cellNum = parseInt(cellNumber);
+    ctx.fillStyle = startCellColors[cellNum] || "rgba(255, 255, 255, 0)";
+    ctx.fillRect(x, y, width, height);
+
+    // Draw border
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+
+    // Special border cases
+    switch (cellNum) {
+      case 8:
+        ctx.moveTo(x + width, y);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + width / 2, y);
+        break;
+      case 9:
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width, y);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x, y + height);
+        ctx.moveTo(x, y + height / 2);
+        ctx.lineTo(x, y);
+        break;
+      case 25:
+        ctx.moveTo(x + width, y);
+        ctx.lineTo(x, y);
+        ctx.moveTo(x, y + height / 2);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x + width, y);
+        break;
+      case 26:
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width, y);
+        ctx.lineTo(x + width, y + height);
+        ctx.moveTo(x + width / 2, y + height);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x, y);
+        break;
+      case 42:
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width, y);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x + width / 2, y + height);
+        ctx.moveTo(x, y + height);
+        ctx.lineTo(x, y);
+        break;
+      case 43:
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width, y);
+        ctx.moveTo(x + width, y + height / 2);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x, y);
+        break;
+      case 59:
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width, y);
+        ctx.lineTo(x + width, y + height / 2);
+        ctx.moveTo(x + width, y + height);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x, y);
+        break;
+      case 60:
+        ctx.moveTo(x + width / 2, y);
+        ctx.lineTo(x + width, y);
+        ctx.lineTo(x + width, y + height);
+        ctx.lineTo(x, y + height);
+        ctx.lineTo(x, y);
+        break;
+      default:
+        ctx.rect(x, y, width, height);
+        break;
+    }
+    ctx.stroke();
+
+    // Draw cell number or star
+    const cellCenterX = x + width / 2;
+    const cellCenterY = y + height / 2;
+
+    ctx.save();
+    ctx.translate(cellCenterX, cellCenterY);
+    ctx.rotate(-rotation);
+
+    if (SAFE_CELLS.includes(cellNum)) {
+      drawStar(ctx, 0, 0, 5, cellSize / 4, cellSize / 8);
+    } else {
+      ctx.fillStyle = "#333";
+      ctx.font = `bold ${cellSize / 3}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(cellNumber, 0, 0);
+    }
+    ctx.restore();
+  },
+
+  drawDiagonalLines(ctx, path, cellSize) {
+    const drawDiagonal = (cellIndex, start, end) => {
+      const cell = path[cellIndex];
+      const x = cell.x * cellSize;
+      const y = cell.y * cellSize;
+      ctx.beginPath();
+      ctx.moveTo(x + start.x * cellSize, y + start.y * cellSize);
+      ctx.lineTo(x + end.x * cellSize, y + end.y * cellSize);
+      ctx.stroke();
+    };
+
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 0.5;
+
+    drawDiagonal(252, { x: 0, y: 0 }, { x: 1, y: 1 });
+    drawDiagonal(152, { x: 0, y: 1 }, { x: 1, y: 0 });
+    drawDiagonal(147, { x: 0, y: 0 }, { x: 1, y: 1 });
+    drawDiagonal(247, { x: 1, y: 0 }, { x: 0, y: 1 });
+  },
+
+  drawDebugGrid(ctx, cellSize) {
+    ctx.strokeStyle = "#aaa";
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        ctx.strokeRect(j * cellSize, i * cellSize, cellSize, cellSize);
+      }
+    }
+  },
+
+  drawDebugCellNumbers(ctx, path, cellSize, rotation) {
+    ctx.fillStyle = "#666";
+    ctx.font = `${cellSize / 5}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let i = 0; i < path.length; i++) {
+      const cell = path[i];
+      const x = cell.x * cellSize + cellSize / 2;
+      const y = cell.y * cellSize + cellSize / 2;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(-rotation);
+      ctx.fillText(cell.index, 0, 0);
+      ctx.restore();
+    }
+  },
+
+  drawPiece(ctx, piece, cellSize, pieceColor) {
+    ctx.fillStyle = COLORS[pieceColor];
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(piece.px, piece.py, cellSize / 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  },
+
+  drawAvatar(ctx, x, y, circleRadius, avatarImageRef) {
+    const avatarSize = circleRadius * 1.6;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(
+      avatarImageRef.current,
+      x - avatarSize / 2,
+      y - avatarSize / 2,
+      avatarSize,
+      avatarSize,
+    );
+    ctx.restore();
+  },
+};
+
+// Main drawing function
 export function drawBoard(
   ctx,
   canvas,
@@ -52,7 +386,7 @@ export function drawBoard(
 
   ctx.save();
 
-  // Rotate board based on player color
+  // Set up rotation based on player color
   const boardCenterX = size / 2;
   const boardCenterY = size / 2;
   ctx.translate(boardCenterX, boardCenterY);
@@ -60,15 +394,14 @@ export function drawBoard(
   let rotation = 0;
   switch (pieceColor) {
     case "red":
-      rotation = Math.PI; // 180 degrees
+      rotation = Math.PI;
       break;
     case "blue":
-      rotation = Math.PI / 2; // 90 degrees
+      rotation = Math.PI / 2;
       break;
     case "green":
-      rotation = -Math.PI / 2; // -90 degrees
+      rotation = -Math.PI / 2;
       break;
-    // Yellow is default, no rotation
   }
   ctx.rotate(rotation);
   ctx.translate(-boardCenterX, -boardCenterY);
@@ -81,422 +414,89 @@ export function drawBoard(
     56: COLORS.green,
   };
 
-  // Draw colored corners (7x7 squares) with circles
   const cornerPixelSize = CORNER_SIZE * cellSize;
-  const circleRadius = 2 * cellSize;
 
-  // Top left - Red
-  let x = 0;
-  let y = 0;
-  ctx.fillStyle = COLORS.red;
-  ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.beginPath();
-  ctx.arc(
-    x + cornerPixelSize / 2,
-    y + cornerPixelSize / 2,
-    circleRadius,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
+  // Draw corners and their circles
+  const corners = [
+    { x: 0, y: 0, color: COLORS.red },
+    { x: (GRID_SIZE - CORNER_SIZE) * cellSize, y: 0, color: COLORS.blue },
+    { x: 0, y: (GRID_SIZE - CORNER_SIZE) * cellSize, color: COLORS.green },
+    {
+      x: (GRID_SIZE - CORNER_SIZE) * cellSize,
+      y: (GRID_SIZE - CORNER_SIZE) * cellSize,
+      color: COLORS.yellow,
+    },
+  ];
 
-  // Top right - Blue
-  x = (GRID_SIZE - CORNER_SIZE) * cellSize;
-  y = 0;
-  ctx.fillStyle = COLORS.blue;
-  ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.beginPath();
-  ctx.arc(
-    x + cornerPixelSize / 2,
-    y + cornerPixelSize / 2,
-    circleRadius,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
+  corners.forEach((corner) => {
+    const { x, y, radius } = BoardComponents.drawCorner(
+      ctx,
+      corner.x,
+      corner.y,
+      cornerPixelSize,
+      corner.color,
+      cellSize,
+    );
 
-  // Bottom left - Green
-  x = 0;
-  y = (GRID_SIZE - CORNER_SIZE) * cellSize;
-  ctx.fillStyle = COLORS.green;
-  ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.beginPath();
-  ctx.arc(
-    x + cornerPixelSize / 2,
-    y + cornerPixelSize / 2,
-    circleRadius,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
+    BoardComponents.drawCornerCircles(ctx, x, y, corner.color, radius);
+  });
 
-  // Bottom right - Yellow
-  x = (GRID_SIZE - CORNER_SIZE) * cellSize;
-  y = (GRID_SIZE - CORNER_SIZE) * cellSize;
-  ctx.fillStyle = COLORS.yellow;
-  ctx.fillRect(x, y, cornerPixelSize, cornerPixelSize);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.beginPath();
-  ctx.arc(
-    x + cornerPixelSize / 2,
-    y + cornerPixelSize / 2,
-    circleRadius,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
-
-  // Draw home area (4x4 grey square in center)
+  // Draw home area
   const homeStartX = Math.floor((GRID_SIZE - HOME_SIZE) / 2);
   const homeStartY = Math.floor((GRID_SIZE - HOME_SIZE) / 2);
-  ctx.fillStyle = "rgba(128, 128, 128, 0.5)";
-  ctx.fillRect(
-    homeStartX * cellSize,
-    homeStartY * cellSize,
-    HOME_SIZE * cellSize,
-    HOME_SIZE * cellSize,
-  );
+  BoardComponents.drawHomeArea(ctx, homeStartX, homeStartY, cellSize);
 
-  // Draw colored tails extending from home area
-  // Red tail (extending upward from home)
-  ctx.fillStyle = COLORS.red;
-  ctx.fillRect(
-    (homeStartX + 1) * cellSize,
-    (homeStartY - 7) * cellSize,
-    2 * cellSize,
-    7 * cellSize,
-  );
+  // Draw colored tails
+  ["red", "blue", "yellow", "green"].forEach((color) => {
+    BoardComponents.drawColoredTail(
+      ctx,
+      homeStartX,
+      homeStartY,
+      cellSize,
+      color,
+    );
+  });
 
-  // Blue tail (extending rightward from home)
-  ctx.fillStyle = COLORS.blue;
-  ctx.fillRect(
-    (homeStartX + HOME_SIZE) * cellSize,
-    (homeStartY + 1) * cellSize,
-    7 * cellSize,
-    2 * cellSize,
-  );
+  // Draw home triangles
+  BoardComponents.drawHomeTriangles(ctx, homeStartX, homeStartY, cellSize);
 
-  // Yellow tail (extending downward from home)
-  ctx.fillStyle = COLORS.yellow;
-  ctx.fillRect(
-    (homeStartX + 1) * cellSize,
-    (homeStartY + HOME_SIZE) * cellSize,
-    2 * cellSize,
-    7 * cellSize,
-  );
-
-  // Green tail (extending leftward from home)
-  ctx.fillStyle = COLORS.green;
-  ctx.fillRect(
-    (homeStartX - 7) * cellSize,
-    (homeStartY + 1) * cellSize,
-    7 * cellSize,
-    2 * cellSize,
-  );
-
-  // Draw 4 colored triangles in the home area
-  const homeX = homeStartX * cellSize;
-  const homeY = homeStartY * cellSize;
-  const homeWidth = HOME_SIZE * cellSize;
-  const homeHeight = HOME_SIZE * cellSize;
-
-  // Calculate center point
-  const centerX = homeX + homeWidth / 2;
-  const centerY = homeY + homeHeight / 2;
-
-  // Top triangle (Red) - pointing up (toward top-left corner)
-  ctx.fillStyle = COLORS.red;
-  ctx.beginPath();
-  ctx.moveTo(centerX, homeY + homeHeight / 2);
-  ctx.lineTo(homeX, homeY);
-  ctx.lineTo(homeX + homeWidth, homeY);
-  ctx.closePath();
-  ctx.fill();
-
-  // Right triangle (Blue) - pointing right (toward top-right corner) -
-  ctx.fillStyle = COLORS.blue;
-  ctx.beginPath();
-  ctx.moveTo(homeX + homeWidth / 2, centerY);
-  ctx.lineTo(homeX + homeWidth, homeY);
-  ctx.lineTo(homeX + homeWidth, homeY + homeHeight);
-  ctx.closePath();
-  ctx.fill();
-
-  // Bottom triangle (Yellow) - pointing down (toward bottom-right corner)
-  ctx.fillStyle = COLORS.yellow;
-  ctx.beginPath();
-  ctx.moveTo(centerX, homeY + homeHeight / 2);
-  ctx.lineTo(homeX, homeY + homeHeight);
-  ctx.lineTo(homeX + homeWidth, homeY + homeHeight);
-  ctx.closePath();
-  ctx.fill();
-
-  // Left triangle (Green) - pointing left (toward bottom-left corner)
-  ctx.fillStyle = COLORS.green;
-  ctx.beginPath();
-  ctx.moveTo(homeX + homeWidth / 2, centerY);
-  ctx.lineTo(homeX, homeY);
-  ctx.lineTo(homeX, homeY + homeHeight);
-  ctx.closePath();
-  ctx.fill();
-
-  // Draw game cell numbers with borders
-  ctx.font = `bold ${cellSize / 3}px Arial`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  // Draw game cell numbers
+  // Draw game cells
   for (const [cellNumber, indices] of Object.entries(gameCells)) {
-    // Get the two cells
     const firstCell = path[indices[0]];
     const secondCell = path[indices[1]];
-
-    // Check if cells are horizontally or vertically aligned
-    const isHorizontal = firstCell.y === secondCell.y;
-
-    let x, y, width, height;
-
-    if (isHorizontal) {
-      // For horizontally merged cells (1-8, 26-33, 34-35, 36-42, 60-67, 68)
-      x = firstCell.x * cellSize;
-      y = firstCell.y * cellSize;
-      width = 2 * cellSize;
-      height = cellSize;
-    } else {
-      // For vertically merged cells (9-16, 17-18, 19-25, 43-50, 51-52, 53-59)
-      x = firstCell.x * cellSize;
-      y = firstCell.y * cellSize;
-      width = cellSize;
-      height = 2 * cellSize;
-    }
-
-    // Draw the background for the combined cell
-    const cellNum = parseInt(cellNumber);
-    if (startCellColors[cellNum]) {
-      ctx.fillStyle = startCellColors[cellNum];
-    } else {
-      ctx.fillStyle = "rgba(255, 255, 255, 0)";
-    }
-    ctx.fillRect(x, y, width, height);
-
-    // Draw the border around the combined cell
-    ctx.strokeStyle = "#333";
-    ctx.lineWidth = 0.5;
-
-    ctx.beginPath();
-    switch (cellNum) {
-      case 8:
-        ctx.moveTo(x + width, y); // Start at top-right corner
-        ctx.lineTo(x + width, y + height); // Draw right border
-        ctx.lineTo(x, y + height); // Draw bottom border
-        ctx.lineTo(x, y); // Draw left border
-        ctx.lineTo(x + width / 2, y); // Draw top border of 251
-        break;
-      case 9:
-        ctx.moveTo(x, y); // top-left
-        ctx.lineTo(x + width, y); // top
-        ctx.lineTo(x + width, y + height); // right
-        ctx.lineTo(x, y + height); // bottom
-        ctx.moveTo(x, y + height / 2); // move to middle-left
-        ctx.lineTo(x, y); // top-left half
-        break;
-      case 25:
-        ctx.moveTo(x + width, y); // top-right
-        ctx.lineTo(x, y); // top
-        ctx.moveTo(x, y + height / 2); // middle-left
-        ctx.lineTo(x, y + height); // bottom-left
-        ctx.lineTo(x + width, y + height); // bottom
-        ctx.lineTo(x + width, y); // right
-        break;
-      case 26:
-        ctx.moveTo(x, y); // top-left
-        ctx.lineTo(x + width, y); // top
-        ctx.lineTo(x + width, y + height); // right
-        ctx.moveTo(x + width / 2, y + height); // middle-bottom
-        ctx.lineTo(x, y + height); // bottom-left
-        ctx.lineTo(x, y); // left
-        break;
-      case 42:
-        ctx.moveTo(x, y); // top-left
-        ctx.lineTo(x + width, y); // top
-        ctx.lineTo(x + width, y + height); // right
-        ctx.lineTo(x + width / 2, y + height); // bottom-right
-        ctx.moveTo(x, y + height); // bottom-left
-        ctx.lineTo(x, y); // left
-        break;
-      case 43:
-        ctx.moveTo(x, y); // top-left
-        ctx.lineTo(x + width, y); // top
-        ctx.moveTo(x + width, y + height / 2); // middle-right
-        ctx.lineTo(x + width, y + height); // bottom-right
-        ctx.lineTo(x, y + height); // bottom
-        ctx.lineTo(x, y); // left
-        break;
-      case 59:
-        ctx.moveTo(x, y); // top-left
-        ctx.lineTo(x + width, y); // top
-        ctx.lineTo(x + width, y + height / 2); // top-right
-        ctx.moveTo(x + width, y + height); // bottom-right
-        ctx.lineTo(x, y + height); // bottom
-        ctx.lineTo(x, y); // left
-        break;
-      case 60:
-        ctx.moveTo(x + width / 2, y); // middle-top
-        ctx.lineTo(x + width, y); // top-right
-        ctx.lineTo(x + width, y + height); // right
-        ctx.lineTo(x, y + height); // bottom
-        ctx.lineTo(x, y); // left
-        break;
-      default:
-        ctx.rect(x, y, width, height);
-        break;
-    }
-    ctx.stroke();
-
-    // Draw the number or a star in the center of the combined cell
-    const cellCenterX = x + width / 2;
-    const cellCenterY = y + height / 2;
-
-    ctx.save();
-    ctx.translate(cellCenterX, cellCenterY);
-    ctx.rotate(-rotation);
-
-    if (SAFE_CELLS.includes(cellNum)) {
-      drawStar(ctx, 0, 0, 5, cellSize / 4, cellSize / 8);
-    } else {
-      ctx.fillStyle = "#333";
-      ctx.fillText(cellNumber, 0, 0);
-    }
-    ctx.restore();
+    BoardComponents.drawGameCell(
+      ctx,
+      cellNumber,
+      firstCell,
+      secondCell,
+      cellSize,
+      startCellColors,
+      rotation,
+    );
   }
 
   // Draw diagonal lines
-  const drawDiagonal = (cellIndex, start, end) => {
-    const cell = path[cellIndex];
-    const x = cell.x * cellSize;
-    const y = cell.y * cellSize;
-    ctx.beginPath();
-    ctx.moveTo(x + start.x * cellSize, y + start.y * cellSize);
-    ctx.lineTo(x + end.x * cellSize, y + end.y * cellSize);
-    ctx.stroke();
-  };
+  BoardComponents.drawDiagonalLines(ctx, path, cellSize);
 
-  ctx.strokeStyle = "#333";
-  ctx.lineWidth = 0.5;
-
-  drawDiagonal(252, { x: 0, y: 0 }, { x: 1, y: 1 }); // top-left to bottom-right
-  drawDiagonal(152, { x: 0, y: 1 }, { x: 1, y: 0 }); // bottom-left to top-right
-  drawDiagonal(147, { x: 0, y: 0 }, { x: 1, y: 1 }); // top-left to bottom-right
-  drawDiagonal(247, { x: 1, y: 0 }, { x: 0, y: 1 }); // top-right to bottom-left
-
-  // Draw debug cell numbers if debug mode is on
+  // Draw debug elements if needed
   if (debug) {
-    // Draw grid
-    ctx.strokeStyle = "#aaa";
-    for (let i = 0; i < GRID_SIZE; i++) {
-      for (let j = 0; j < GRID_SIZE; j++) {
-        ctx.strokeRect(j * cellSize, i * cellSize, cellSize, cellSize);
-      }
-    }
-
-    ctx.fillStyle = "#666";
-    ctx.font = `${cellSize / 5}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    for (let i = 0; i < path.length; i++) {
-      const cell = path[i];
-      const x = cell.x * cellSize + cellSize / 2;
-      const y = cell.y * cellSize + cellSize / 2;
-
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(-rotation);
-      ctx.fillText(cell.index, 0, 0);
-      ctx.restore();
-    }
+    BoardComponents.drawDebugGrid(ctx, cellSize);
+    BoardComponents.drawDebugCellNumbers(ctx, path, cellSize, rotation);
   }
 
-  // Draw piece with the assigned color
-  ctx.fillStyle = COLORS[pieceColor];
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(piece.px, piece.py, cellSize / 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  // Draw piece
+  BoardComponents.drawPiece(ctx, piece, cellSize, pieceColor);
 
   ctx.restore();
 
-  // Draw avatars in corner circles (outside the rotated context)
+  // Draw avatars (outside the rotated context)
   if (imageLoaded && avatarImageRef.current) {
-    const avatarSize = circleRadius * 1.6; // Make avatar slightly smaller than circle
+    const circleRadius = 2 * cellSize;
 
-    // Top left - Red corner
-    let x = 0 + cornerPixelSize / 2;
-    let y = 0 + cornerPixelSize / 2;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(
-      avatarImageRef.current,
-      x - avatarSize / 2,
-      y - avatarSize / 2,
-      avatarSize,
-      avatarSize,
-    );
-    ctx.restore();
-
-    // Top right - Blue corner
-    x = (GRID_SIZE - CORNER_SIZE) * cellSize + cornerPixelSize / 2;
-    y = 0 + cornerPixelSize / 2;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(
-      avatarImageRef.current,
-      x - avatarSize / 2,
-      y - avatarSize / 2,
-      avatarSize,
-      avatarSize,
-    );
-    ctx.restore();
-
-    // Bottom left - Green corner
-    x = 0 + cornerPixelSize / 2;
-    y = (GRID_SIZE - CORNER_SIZE) * cellSize + cornerPixelSize / 2;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(
-      avatarImageRef.current,
-      x - avatarSize / 2,
-      y - avatarSize / 2,
-      avatarSize,
-      avatarSize,
-    );
-    ctx.restore();
-
-    // Bottom right - Yellow corner
-    x = (GRID_SIZE - CORNER_SIZE) * cellSize + cornerPixelSize / 2;
-    y = (GRID_SIZE - CORNER_SIZE) * cellSize + cornerPixelSize / 2;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, circleRadius, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(
-      avatarImageRef.current,
-      x - avatarSize / 2,
-      y - avatarSize / 2,
-      avatarSize,
-      avatarSize,
-    );
-    ctx.restore();
+    corners.forEach((corner) => {
+      const x = corner.x + cornerPixelSize / 2;
+      const y = corner.y + cornerPixelSize / 2;
+      BoardComponents.drawAvatar(ctx, x, y, circleRadius, avatarImageRef);
+    });
   }
 }
