@@ -348,11 +348,27 @@ const BoardComponents = {
     }
   },
 
-  drawPiece(ctx, piece, cellSize, pieceColor, isCurrentPlayer = false) {
+  drawPiece(
+    ctx,
+    piece,
+    cellSize,
+    pieceColor,
+    isCurrentPlayer = false,
+    animationFrame = 0,
+  ) {
     // Make the current player's piece slightly larger and with a different border
-    const radius = isCurrentPlayer ? cellSize / 2.5 : cellSize / 3;
-    const borderWidth = isCurrentPlayer ? 3 : 2;
-    const borderColor = isCurrentPlayer ? "#FFD700" : "white";
+    const baseRadius = cellSize / 3;
+    const borderWidth = isCurrentPlayer ? 2 : 2;
+    // const borderColor = isCurrentPlayer ? "black" : "black";
+    const borderColor = "rgba(0, 0, 0, 1)";
+
+    // Add breathing effect for current player
+    let radius = baseRadius;
+    if (isCurrentPlayer) {
+      // Create a breathing effect using sine wave
+      const breathScale = 1 + Math.sin(animationFrame * 0.05) * 0.15;
+      radius = baseRadius * breathScale;
+    }
 
     ctx.fillStyle = COLORS[pieceColor];
     ctx.strokeStyle = borderColor;
@@ -362,13 +378,15 @@ const BoardComponents = {
     ctx.fill();
     ctx.stroke();
 
-    // Add a small indicator for the current player
+    // Add a subtle glow effect for current player
     if (isCurrentPlayer) {
-      ctx.fillStyle = "white";
-      ctx.font = `${radius}px Arial`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("★", piece.px, piece.py);
+      ctx.save();
+      // ctx.globalAlpha = 0.3;
+      // ctx.fillStyle = "#FFD700";
+      ctx.beginPath();
+      ctx.arc(piece.px, piece.py, radius * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
   },
 
@@ -410,6 +428,7 @@ export function drawBoard(
   imageLoaded,
   avatarImageRef,
   players = [],
+  animationFrame = 0,
 ) {
   const size = canvas.width / window.devicePixelRatio;
   const cellSize = size / GRID_SIZE;
@@ -538,6 +557,7 @@ export function drawBoard(
         cellSize,
         piece.color,
         isCurrentPlayer,
+        animationFrame,
       );
     });
   }

@@ -27,6 +27,8 @@ export function useGame() {
   const canvasContextRef = useRef(null);
   const drawBoardRef = useRef(null);
   const boardInitializedRef = useRef(false);
+  const animationFrameRef = useRef(0);
+  const animationIdRef = useRef(null);
 
   // Update the ref whenever pieces changes
   useEffect(() => {
@@ -137,6 +139,32 @@ export function useGame() {
     };
   }, []);
 
+  // Animation loop
+  useEffect(() => {
+    if (!gameStarted || !pieceColor) return;
+
+    const animate = () => {
+      animationFrameRef.current += 1;
+
+      // Draw the board with the current animation frame
+      if (drawBoardRef.current) {
+        drawBoardRef.current(animationFrameRef.current);
+      }
+
+      animationIdRef.current = requestAnimationFrame(animate);
+    };
+
+    // Start the animation loop
+    animationIdRef.current = requestAnimationFrame(animate);
+
+    // Clean up the animation loop
+    return () => {
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
+    };
+  }, [gameStarted, pieceColor]);
+
   // Create a function to draw the board
   const createDrawBoardFunction = useCallback(() => {
     if (
@@ -147,7 +175,7 @@ export function useGame() {
     )
       return null;
 
-    return () => {
+    return (animationFrame = 0) => {
       drawBoard(
         canvasContextRef.current,
         canvasRef.current,
@@ -159,6 +187,7 @@ export function useGame() {
         imageLoaded,
         avatarImageRef,
         players,
+        animationFrame,
       );
     };
   }, [pieceColor, debug, imageLoaded, players]);
@@ -188,22 +217,12 @@ export function useGame() {
         0,
         0,
       );
-
-      // Redraw the board after resize
-      if (drawBoardRef.current) {
-        drawBoardRef.current();
-      }
     }
 
     // Create the drawBoard function
     drawBoardRef.current = createDrawBoardFunction();
 
     resizeCanvas();
-
-    // Initial board draw
-    if (drawBoardRef.current) {
-      drawBoardRef.current();
-    }
     boardInitializedRef.current = true;
 
     window.addEventListener("resize", resizeCanvas);
@@ -213,11 +232,6 @@ export function useGame() {
   // Update drawBoard function when dependencies change
   useEffect(() => {
     drawBoardRef.current = createDrawBoardFunction();
-
-    // Redraw the board if the board is already initialized
-    if (boardInitializedRef.current && drawBoardRef.current) {
-      drawBoardRef.current();
-    }
   }, [createDrawBoardFunction]);
 
   // Effect for initializing piece positions
@@ -274,16 +288,6 @@ export function useGame() {
     setPieces(updatedPieces);
     initializedRef.current = true;
   }, [gameStarted, pieceColor, pieces.length]); // Only depend on pieces length, not the array itself
-
-  // Effect for drawing the board after pieces are initialized
-  useEffect(() => {
-    if (!initializedRef.current || !boardInitializedRef.current) return;
-
-    // Draw the board when pieces are initialized
-    if (drawBoardRef.current) {
-      drawBoardRef.current();
-    }
-  }, [initializedRef.current, pieces]); // Use pieces as a dependency to trigger redraw when pieces change
 
   // Effect for setting up move functions
   useEffect(() => {
@@ -384,11 +388,6 @@ export function useGame() {
             piecesRef.current = updatedPieces;
             setPieces(updatedPieces);
 
-            // Redraw the board
-            if (drawBoardRef.current) {
-              drawBoardRef.current();
-            }
-
             requestAnimationFrame(animate);
           } else {
             // Final position update
@@ -405,11 +404,6 @@ export function useGame() {
             setPieces(updatedPieces);
 
             currentGameCellRef.current[playerId] = nextCellNumber;
-
-            // Redraw the board
-            if (drawBoardRef.current) {
-              drawBoardRef.current();
-            }
 
             setTimeout(moveStep, 10);
           }
@@ -477,11 +471,6 @@ export function useGame() {
           piecesRef.current = updatedPieces;
           setPieces(updatedPieces);
 
-          // Redraw the board
-          if (drawBoardRef.current) {
-            drawBoardRef.current();
-          }
-
           requestAnimationFrame(animate);
         } else {
           // Final position update
@@ -498,11 +487,6 @@ export function useGame() {
           setPieces(updatedPieces);
 
           currentGameCellRef.current[playerId] = targetHomeCell;
-
-          // Redraw the board
-          if (drawBoardRef.current) {
-            drawBoardRef.current();
-          }
 
           if (onComplete) {
             onComplete();
