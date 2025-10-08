@@ -1,4 +1,3 @@
-
 "use client";
 
 export default function Controls({
@@ -11,8 +10,8 @@ export default function Controls({
   changeColor,
 }) {
   return (
-    <div className="mt-4 flex flex-col items-center gap-2">
-      <div className="flex gap-2">
+    <div className="flex flex-col items-center gap-2">
+      <div className="flex gap-2 sm:flex-col">
         <button
           onClick={rollDice}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700"

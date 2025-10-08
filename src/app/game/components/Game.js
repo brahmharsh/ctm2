@@ -16,7 +16,7 @@ export default function Game() {
   } = useGame();
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+    <div className="flex sm:flex-row flex-col items-center justify-center h-screen bg-gray-100 gap-2">
       <canvas
         ref={canvasRef}
         className="bg-white w-[99vmin] h-[99vmin] border-t-2 border-l-2 border-neutral-200 border-b-2 border-r-2 border-neutral-500 shadow-inner rounded-2xl"
