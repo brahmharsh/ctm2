@@ -21,6 +21,12 @@ export function useGame() {
   const avatarImageRef = useRef(null);
   const moveToIndexRef = useRef(null);
   const piecesRef = useRef(pieces);
+  const initializedRef = useRef(false);
+  const pathRef = useRef(null);
+  const gameCellsRef = useRef(null);
+  const canvasContextRef = useRef(null);
+  const drawBoardRef = useRef(null);
+  const boardInitializedRef = useRef(false);
 
   // Update the ref whenever pieces changes
   useEffect(() => {
@@ -98,6 +104,7 @@ export function useGame() {
     });
 
     setPieces(newPieces);
+    initializedRef.current = false; // Reset initialization flag when pieces change
   }, [players, gameStarted]);
 
   useEffect(() => {
@@ -130,20 +137,44 @@ export function useGame() {
     };
   }, []);
 
+  // Create a function to draw the board
+  const createDrawBoardFunction = useCallback(() => {
+    if (
+      !canvasRef.current ||
+      !canvasContextRef.current ||
+      !pathRef.current ||
+      !gameCellsRef.current
+    )
+      return null;
+
+    return () => {
+      drawBoard(
+        canvasContextRef.current,
+        canvasRef.current,
+        pieceColor,
+        gameCellsRef.current,
+        pathRef.current,
+        debug,
+        piecesRef.current,
+        imageLoaded,
+        avatarImageRef,
+        players,
+      );
+    };
+  }, [pieceColor, debug, imageLoaded, players]);
+
+  // Separate effect for canvas setup
   useEffect(() => {
-    if (!gameStarted || !pieceColor || pieces.length === 0) return;
+    if (!gameStarted || !pieceColor) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
+    canvasContextRef.current = ctx;
     const { path, gameCells } = buildPath();
 
-    let isMoving = false;
-    const currentGameCellRef = { current: {} };
-
-    // Initialize current positions for all players
-    pieces.forEach((piece) => {
-      currentGameCellRef.current[piece.id] = piece.position;
-    });
+    // Store path and gameCells in refs for use in other functions
+    pathRef.current = path;
+    gameCellsRef.current = gameCells;
 
     function resizeCanvas() {
       const size = Math.min(window.innerWidth, window.innerHeight) * 0.9;
@@ -157,64 +188,119 @@ export function useGame() {
         0,
         0,
       );
+
+      // Redraw the board after resize
+      if (drawBoardRef.current) {
+        drawBoardRef.current();
+      }
     }
 
-    function callDrawBoard() {
-      drawBoard(
-        ctx,
-        canvas,
-        pieceColor,
-        gameCells,
-        path,
-        debug,
-        piecesRef.current,
-        imageLoaded,
-        avatarImageRef,
-        players,
-      );
+    // Create the drawBoard function
+    drawBoardRef.current = createDrawBoardFunction();
+
+    resizeCanvas();
+
+    // Initial board draw
+    if (drawBoardRef.current) {
+      drawBoardRef.current();
     }
+    boardInitializedRef.current = true;
 
-    function initializePiecePositions() {
-      const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
+    window.addEventListener("resize", resizeCanvas);
+    return () => window.removeEventListener("resize", resizeCanvas);
+  }, [gameStarted, pieceColor, createDrawBoardFunction]);
 
-      // Update positions for all pieces
-      const updatedPieces = pieces.map((piece) => {
-        const startCell = PLAYERS[piece.id].startCell;
-        const firstCellIndices = gameCells[startCell];
-        const firstCell = path[firstCellIndices[0]];
-        const secondCell = path[firstCellIndices[1]];
+  // Update drawBoard function when dependencies change
+  useEffect(() => {
+    drawBoardRef.current = createDrawBoardFunction();
 
-        const isHorizontal = firstCell.y === secondCell.y;
-
-        let px, py;
-
-        if (isHorizontal) {
-          px =
-            (firstCell.x * cellSize + secondCell.x * cellSize) / 2 +
-            cellSize / 2;
-          py =
-            (firstCell.y * cellSize + secondCell.y * cellSize) / 2 +
-            cellSize / 2;
-        } else {
-          px =
-            (firstCell.x * cellSize + secondCell.x * cellSize) / 2 +
-            cellSize / 2;
-          py =
-            (firstCell.y * cellSize + secondCell.y * cellSize) / 2 +
-            cellSize / 2;
-        }
-
-        return {
-          ...piece,
-          x: firstCell.x,
-          y: firstCell.y,
-          px,
-          py,
-        };
-      });
-
-      setPieces(updatedPieces);
+    // Redraw the board if the board is already initialized
+    if (boardInitializedRef.current && drawBoardRef.current) {
+      drawBoardRef.current();
     }
+  }, [createDrawBoardFunction]);
+
+  // Effect for initializing piece positions
+  useEffect(() => {
+    if (
+      !gameStarted ||
+      !pieceColor ||
+      pieces.length === 0 ||
+      initializedRef.current
+    )
+      return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvasContextRef.current;
+    const path = pathRef.current;
+    const gameCells = gameCellsRef.current;
+
+    if (!path || !gameCells) return;
+
+    const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
+
+    // Update positions for all pieces
+    const updatedPieces = pieces.map((piece) => {
+      const startCell = PLAYERS[piece.id].startCell;
+      const firstCellIndices = gameCells[startCell];
+      const firstCell = path[firstCellIndices[0]];
+      const secondCell = path[firstCellIndices[1]];
+
+      const isHorizontal = firstCell.y === secondCell.y;
+
+      let px, py;
+
+      if (isHorizontal) {
+        px =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        py =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      } else {
+        px =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        py =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      }
+
+      return {
+        ...piece,
+        x: firstCell.x,
+        y: firstCell.y,
+        px,
+        py,
+      };
+    });
+
+    setPieces(updatedPieces);
+    initializedRef.current = true;
+  }, [gameStarted, pieceColor, pieces.length]); // Only depend on pieces length, not the array itself
+
+  // Effect for drawing the board after pieces are initialized
+  useEffect(() => {
+    if (!initializedRef.current || !boardInitializedRef.current) return;
+
+    // Draw the board when pieces are initialized
+    if (drawBoardRef.current) {
+      drawBoardRef.current();
+    }
+  }, [initializedRef.current, pieces]); // Use pieces as a dependency to trigger redraw when pieces change
+
+  // Effect for setting up move functions
+  useEffect(() => {
+    if (!gameStarted || !pieceColor || pieces.length === 0) return;
+
+    const path = pathRef.current;
+    const gameCells = gameCellsRef.current;
+
+    if (!path || !gameCells) return;
+
+    let isMoving = false;
+    const currentGameCellRef = { current: {} };
+
+    // Initialize current positions for all players
+    pieces.forEach((piece) => {
+      currentGameCellRef.current[piece.id] = piece.position;
+    });
 
     function moveToGameCell(playerId, targetCellNumber, onComplete) {
       if (!gameCells[targetCellNumber]) {
@@ -252,6 +338,7 @@ export function useGame() {
 
         const isHorizontal = firstCell.y === secondCell.y;
 
+        const canvas = canvasRef.current;
         const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
         let targetX, targetY;
 
@@ -297,7 +384,11 @@ export function useGame() {
             piecesRef.current = updatedPieces;
             setPieces(updatedPieces);
 
-            callDrawBoard();
+            // Redraw the board
+            if (drawBoardRef.current) {
+              drawBoardRef.current();
+            }
+
             requestAnimationFrame(animate);
           } else {
             // Final position update
@@ -314,7 +405,11 @@ export function useGame() {
             setPieces(updatedPieces);
 
             currentGameCellRef.current[playerId] = nextCellNumber;
-            callDrawBoard();
+
+            // Redraw the board
+            if (drawBoardRef.current) {
+              drawBoardRef.current();
+            }
 
             setTimeout(moveStep, 10);
           }
@@ -323,6 +418,98 @@ export function useGame() {
       }
 
       moveStep();
+    }
+
+    function moveToHomePath(playerId, targetHomeCell, onComplete) {
+      if (!gameCells[targetHomeCell]) {
+        if (onComplete) onComplete();
+        return;
+      }
+      if (isMoving && typeof onComplete === "undefined") return;
+
+      isMoving = true;
+
+      const targetIndices = gameCells[targetHomeCell];
+      const firstCell = path[targetIndices[0]];
+      const secondCell = path[targetIndices[1]];
+
+      const isHorizontal = firstCell.y === secondCell.y;
+
+      const canvas = canvasRef.current;
+      const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
+      let targetX, targetY;
+
+      if (isHorizontal) {
+        targetX =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        targetY =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      } else {
+        targetX =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        targetY =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      }
+
+      function animate() {
+        // Find the piece for this player
+        const currentPieces = piecesRef.current;
+        const pieceIndex = currentPieces.findIndex((p) => p.id === playerId);
+        if (pieceIndex === -1) {
+          isMoving = false;
+          if (onComplete) onComplete();
+          return;
+        }
+
+        const piece = currentPieces[pieceIndex];
+        let dx = targetX - piece.px;
+        let dy = targetY - piece.py;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 2) {
+          // Update the piece position
+          const updatedPieces = [...currentPieces];
+          updatedPieces[pieceIndex] = {
+            ...piece,
+            px: piece.px + dx * 0.3,
+            py: piece.py + dy * 0.3,
+          };
+          piecesRef.current = updatedPieces;
+          setPieces(updatedPieces);
+
+          // Redraw the board
+          if (drawBoardRef.current) {
+            drawBoardRef.current();
+          }
+
+          requestAnimationFrame(animate);
+        } else {
+          // Final position update
+          const updatedPieces = [...currentPieces];
+          updatedPieces[pieceIndex] = {
+            ...piece,
+            x: firstCell.x,
+            y: firstCell.y,
+            px: targetX,
+            py: targetY,
+            position: targetHomeCell,
+          };
+          piecesRef.current = updatedPieces;
+          setPieces(updatedPieces);
+
+          currentGameCellRef.current[playerId] = targetHomeCell;
+
+          // Redraw the board
+          if (drawBoardRef.current) {
+            drawBoardRef.current();
+          }
+
+          if (onComplete) {
+            onComplete();
+          }
+        }
+      }
+      animate();
     }
 
     function movePiece(playerId, steps) {
@@ -356,6 +543,7 @@ export function useGame() {
           return;
       }
 
+      // Check if the piece is already in the home path
       if (
         typeof currentCell === "string" &&
         currentCell[0] === homePathPrefix
@@ -366,22 +554,25 @@ export function useGame() {
         let currentStep = 0;
 
         function moveHomeStep() {
-          if (currentStep >= stepsToMove) return;
+          if (currentStep >= stepsToMove) {
+            isMoving = false;
+            return;
+          }
 
           currentStep++;
           const nextHomeCell = homePathPrefix + (currentHomeNum + currentStep);
-          // For simplicity, we'll skip home path movement for now
-          // In a full implementation, you would add a moveToHomePath function
-
-          if (currentStep < stepsToMove) {
-            setTimeout(moveHomeStep, 300);
-          }
+          moveToHomePath(
+            nextHomeCell,
+            1,
+            currentStep < stepsToMove ? moveHomeStep : null,
+          );
         }
 
         moveHomeStep();
         return;
       }
 
+      // Check if the piece needs to enter the home path
       const distToEntry = (entryCell - currentCell + 68) % 68;
 
       if (distToEntry < steps) {
@@ -407,11 +598,17 @@ export function useGame() {
           currentMove++;
 
           if (typeof nextCell === "string") {
-            // For simplicity, we'll skip home path movement for now
-            // In a full implementation, you would add a moveToHomePath function
-            executeMove();
+            moveToHomePath(
+              nextCell,
+              1,
+              currentMove < moveSequence.length ? executeMove : null,
+            );
           } else {
-            moveToGameCell(playerId, nextCell, executeMove);
+            moveToGameCell(
+              playerId,
+              nextCell,
+              currentMove < moveSequence.length ? executeMove : null,
+            );
           }
         }
         executeMove();
@@ -423,17 +620,7 @@ export function useGame() {
 
     // Store the movePiece function in a ref to access it in rollDice
     moveToIndexRef.current = movePiece;
-
-    function init() {
-      resizeCanvas();
-      initializePiecePositions();
-      callDrawBoard();
-    }
-
-    init();
-    window.addEventListener("resize", init);
-    return () => window.removeEventListener("resize", init);
-  }, [debug, pieceColor, imageLoaded, players, gameStarted]); // Removed pieces from dependencies
+  }, [gameStarted, pieceColor, players]); // Removed pieces from dependencies
 
   const rollDice = async () => {
     if (isRolling || !playerId) return;

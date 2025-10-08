@@ -104,7 +104,7 @@ export const api = {
 
   // Simulate rolling dice on the server
   rollDice: async (playerId) => {
-    await delay(500);
+    // await delay(500);
 
     // Check if it's this player's turn
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -116,7 +116,8 @@ export const api = {
     }
 
     // Generate random dice result
-    const result = Math.floor(Math.random() * 6) + 1;
+    // const result = Math.floor(Math.random() * 6) + 1;
+    const result = 6;
 
     // Update player position (simplified for this example)
     currentPlayer.position = (currentPlayer.position + result) % 68;
