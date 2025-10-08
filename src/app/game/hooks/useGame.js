@@ -29,6 +29,10 @@ export function useGame() {
   const boardInitializedRef = useRef(false);
   const animationFrameRef = useRef(0);
   const animationIdRef = useRef(null);
+  const resizeHandlerRef = useRef(null);
+  const isMovingRef = useRef(false);
+  const isResizingRef = useRef(false);
+  const piecePositionsRef = useRef({}); // Store actual cell positions for each piece
 
   // Update the ref whenever pieces changes
   useEffect(() => {
@@ -192,6 +196,67 @@ export function useGame() {
     };
   }, [pieceColor, debug, imageLoaded, players]);
 
+  // Function to recalculate piece positions after resize
+  const recalculatePiecePositions = useCallback(() => {
+    if (!gameStarted || !pieceColor || pieces.length === 0) return;
+
+    const canvas = canvasRef.current;
+    const path = pathRef.current;
+    const gameCells = gameCellsRef.current;
+
+    if (!path || !gameCells) return;
+
+    const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
+
+    // Update positions for all pieces
+    const updatedPieces = pieces.map((piece) => {
+      // Use the stored position from piecePositionsRef if available
+      const currentCell = piecePositionsRef.current[piece.id] || piece.position;
+      let targetIndices;
+
+      // Check if the piece is in the home path
+      if (typeof currentCell === "string") {
+        targetIndices = gameCells[currentCell];
+      } else {
+        targetIndices = gameCells[currentCell];
+      }
+
+      if (!targetIndices) return piece;
+
+      const firstCell = path[targetIndices[0]];
+      const secondCell = path[targetIndices[1]];
+
+      const isHorizontal = firstCell.y === secondCell.y;
+
+      let px, py;
+
+      if (isHorizontal) {
+        px =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        py =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      } else {
+        px =
+          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+        py =
+          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      }
+
+      return {
+        ...piece,
+        x: firstCell.x,
+        y: firstCell.y,
+        px,
+        py,
+        position: currentCell, // Ensure position is preserved
+      };
+    });
+
+    // Update both the ref and state
+    piecesRef.current = updatedPieces;
+    setPieces(updatedPieces);
+  }, [gameStarted, pieceColor]); // Removed pieces from dependencies
+
   // Separate effect for canvas setup
   useEffect(() => {
     if (!gameStarted || !pieceColor) return;
@@ -206,6 +271,8 @@ export function useGame() {
     gameCellsRef.current = gameCells;
 
     function resizeCanvas() {
+      isResizingRef.current = true;
+
       const size = Math.min(window.innerWidth, window.innerHeight) * 0.9;
       canvas.width = size * window.devicePixelRatio;
       canvas.height = size * window.devicePixelRatio;
@@ -217,6 +284,14 @@ export function useGame() {
         0,
         0,
       );
+
+      // Recalculate piece positions after resize
+      recalculatePiecePositions();
+
+      // Reset the resize flag after a short delay
+      setTimeout(() => {
+        isResizingRef.current = false;
+      }, 100);
     }
 
     // Create the drawBoard function
@@ -225,9 +300,21 @@ export function useGame() {
     resizeCanvas();
     boardInitializedRef.current = true;
 
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
-  }, [gameStarted, pieceColor, createDrawBoardFunction]);
+    // Store the resize handler in a ref so we can remove it later
+    resizeHandlerRef.current = resizeCanvas;
+    window.addEventListener("resize", resizeHandlerRef.current);
+
+    return () => {
+      if (resizeHandlerRef.current) {
+        window.removeEventListener("resize", resizeHandlerRef.current);
+      }
+    };
+  }, [
+    gameStarted,
+    pieceColor,
+    createDrawBoardFunction,
+    recalculatePiecePositions,
+  ]);
 
   // Update drawBoard function when dependencies change
   useEffect(() => {
@@ -276,6 +363,9 @@ export function useGame() {
           (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       }
 
+      // Store the initial position in piecePositionsRef
+      piecePositionsRef.current[piece.id] = startCell;
+
       return {
         ...piece,
         x: firstCell.x,
@@ -298,12 +388,12 @@ export function useGame() {
 
     if (!path || !gameCells) return;
 
-    let isMoving = false;
     const currentGameCellRef = { current: {} };
 
     // Initialize current positions for all players
     pieces.forEach((piece) => {
-      currentGameCellRef.current[piece.id] = piece.position;
+      currentGameCellRef.current[piece.id] =
+        piecePositionsRef.current[piece.id] || piece.position;
     });
 
     function moveToGameCell(playerId, targetCellNumber, onComplete) {
@@ -311,9 +401,9 @@ export function useGame() {
         if (onComplete) onComplete();
         return;
       }
-      if (isMoving && typeof onComplete === "undefined") return;
+      if (isMovingRef.current && typeof onComplete === "undefined") return;
 
-      isMoving = true;
+      isMovingRef.current = true;
       const currentCell = currentGameCellRef.current[playerId];
 
       const stepsToMove = (targetCellNumber - currentCell + 68) % 68;
@@ -322,7 +412,7 @@ export function useGame() {
 
       function moveStep() {
         if (currentStepInMove >= stepsToMove) {
-          isMoving = false;
+          isMovingRef.current = false;
           if (onComplete) onComplete();
           return;
         }
@@ -331,7 +421,7 @@ export function useGame() {
         const nextCellNumber = ((currentCell + currentStepInMove - 1) % 68) + 1;
 
         if (!gameCells[nextCellNumber]) {
-          isMoving = false;
+          isMovingRef.current = false;
           if (onComplete) onComplete();
           return;
         }
@@ -363,11 +453,17 @@ export function useGame() {
         }
 
         function animate() {
+          // Skip animation if resizing
+          if (isResizingRef.current) {
+            requestAnimationFrame(animate);
+            return;
+          }
+
           // Find the piece for this player
           const currentPieces = piecesRef.current;
           const pieceIndex = currentPieces.findIndex((p) => p.id === playerId);
           if (pieceIndex === -1) {
-            isMoving = false;
+            isMovingRef.current = false;
             if (onComplete) onComplete();
             return;
           }
@@ -403,6 +499,8 @@ export function useGame() {
             piecesRef.current = updatedPieces;
             setPieces(updatedPieces);
 
+            // Update the stored position
+            piecePositionsRef.current[playerId] = nextCellNumber;
             currentGameCellRef.current[playerId] = nextCellNumber;
 
             setTimeout(moveStep, 10);
@@ -419,9 +517,9 @@ export function useGame() {
         if (onComplete) onComplete();
         return;
       }
-      if (isMoving && typeof onComplete === "undefined") return;
+      if (isMovingRef.current && typeof onComplete === "undefined") return;
 
-      isMoving = true;
+      isMovingRef.current = true;
 
       const targetIndices = gameCells[targetHomeCell];
       const firstCell = path[targetIndices[0]];
@@ -446,11 +544,17 @@ export function useGame() {
       }
 
       function animate() {
+        // Skip animation if resizing
+        if (isResizingRef.current) {
+          requestAnimationFrame(animate);
+          return;
+        }
+
         // Find the piece for this player
         const currentPieces = piecesRef.current;
         const pieceIndex = currentPieces.findIndex((p) => p.id === playerId);
         if (pieceIndex === -1) {
-          isMoving = false;
+          isMovingRef.current = false;
           if (onComplete) onComplete();
           return;
         }
@@ -486,6 +590,8 @@ export function useGame() {
           piecesRef.current = updatedPieces;
           setPieces(updatedPieces);
 
+          // Update the stored position
+          piecePositionsRef.current[playerId] = targetHomeCell;
           currentGameCellRef.current[playerId] = targetHomeCell;
 
           if (onComplete) {
@@ -497,7 +603,7 @@ export function useGame() {
     }
 
     function movePiece(playerId, steps) {
-      if (isMoving) return;
+      if (isMovingRef.current) return;
 
       const player = players.find((p) => p.id === playerId);
       if (!player) return;
@@ -539,7 +645,7 @@ export function useGame() {
 
         function moveHomeStep() {
           if (currentStep >= stepsToMove) {
-            isMoving = false;
+            isMovingRef.current = false;
             return;
           }
 
@@ -575,7 +681,7 @@ export function useGame() {
         let currentMove = 0;
         function executeMove() {
           if (currentMove >= moveSequence.length) {
-            isMoving = false;
+            isMovingRef.current = false;
             return;
           }
           const nextCell = moveSequence[currentMove];
