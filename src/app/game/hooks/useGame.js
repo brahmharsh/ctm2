@@ -74,9 +74,9 @@ export function useGame() {
         if (players.length >= 4) break;
 
         // Random delay before next player joins
-        await new Promise((resolve) =>
-          setTimeout(resolve, Math.random() * 2000 + 1000),
-        );
+        // await new Promise((resolve) =>
+        //   setTimeout(resolve, Math.random() * 2000 + 1000),
+        // );
 
         try {
           const response = await api.joinGame(id);

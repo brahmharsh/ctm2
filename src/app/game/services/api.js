@@ -14,7 +14,7 @@ let gameState = {
 export const api = {
   // Get current game state
   getGameState: async () => {
-    await delay(300);
+    // await delay(300);
     return {
       success: true,
       data: {
@@ -29,7 +29,7 @@ export const api = {
 
   // Join game as a player
   joinGame: async (playerId) => {
-    await delay(500);
+    // await delay(500);
 
     // Check if player already exists
     if (gameState.players.find((p) => p.id === playerId)) {
@@ -76,7 +76,7 @@ export const api = {
 
   // Leave game
   leaveGame: async (playerId) => {
-    await delay(300);
+    // await delay(300);
 
     gameState.players = gameState.players.filter((p) => p.id !== playerId);
 
@@ -116,8 +116,8 @@ export const api = {
     }
 
     // Generate random dice result
-    // const result = Math.floor(Math.random() * 6) + 1;
-    const result = 6;
+    const result = Math.floor(Math.random() * 6) + 1;
+    // const result = 6;
 
     // Update player position (simplified for this example)
     currentPlayer.position = (currentPlayer.position + result) % 68;
@@ -141,7 +141,7 @@ export const api = {
 
   // Reset game
   resetGame: async () => {
-    await delay(300);
+    // await delay(300);
 
     gameState = {
       players: [],
