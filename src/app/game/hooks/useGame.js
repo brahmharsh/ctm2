@@ -97,7 +97,7 @@ export function useGame() {
     if (!gameStarted || players.length === 0) return;
 
     const newPieces = players.map((player) => {
-      const startCell = PLAYERS[player.id].startCell;
+      const startCell = player.startCell;
       return {
         id: player.id,
         color: player.color,
@@ -191,7 +191,7 @@ export function useGame() {
         imageLoaded,
         avatarImageRef,
         players,
-        animationFrame,
+        animationFrame
       );
     };
   }, [pieceColor, debug, imageLoaded, players]);
@@ -282,7 +282,7 @@ export function useGame() {
         0,
         window.devicePixelRatio,
         0,
-        0,
+        0
       );
 
       // Recalculate piece positions after resize
@@ -342,7 +342,7 @@ export function useGame() {
 
     // Update positions for all pieces
     const updatedPieces = pieces.map((piece) => {
-      const startCell = PLAYERS[piece.id].startCell;
+      const startCell = piece.position;
       const firstCellIndices = gameCells[startCell];
       const firstCell = path[firstCellIndices[0]];
       const secondCell = path[firstCellIndices[1]];
@@ -654,7 +654,7 @@ export function useGame() {
           moveToHomePath(
             nextHomeCell,
             1,
-            currentStep < stepsToMove ? moveHomeStep : null,
+            currentStep < stepsToMove ? moveHomeStep : null
           );
         }
 
@@ -691,13 +691,13 @@ export function useGame() {
             moveToHomePath(
               nextCell,
               1,
-              currentMove < moveSequence.length ? executeMove : null,
+              currentMove < moveSequence.length ? executeMove : null
             );
           } else {
             moveToGameCell(
               playerId,
               nextCell,
-              currentMove < moveSequence.length ? executeMove : null,
+              currentMove < moveSequence.length ? executeMove : null
             );
           }
         }
@@ -726,7 +726,7 @@ export function useGame() {
 
         // Update current player
         const nextPlayer = players.find(
-          (p) => p.id === response.data.nextPlayer,
+          (p) => p.id === response.data.nextPlayer
         );
         setCurrentPlayer(nextPlayer);
 
