@@ -366,7 +366,7 @@
         // Player 1 Functions
         function connect1() {
             log(1, 'Connecting to Socket.IO server...', 'info');
-            socket1 = io('http://localhost:3001');
+            socket1 = io('http://localhost:3000');
 
             socket1.on('connect', () => {
                 log(1, `✅ Connected! Socket ID: ${socket1.id}`, 'success');
@@ -501,7 +501,7 @@
         // Player 2 Functions
         function connect2() {
             log(2, 'Connecting to Socket.IO server...', 'info');
-            socket2 = io('http://localhost:3001');
+            socket2 = io('http://localhost:3000');
 
             socket2.on('connect', () => {
                 log(2, `✅ Connected! Socket ID: ${socket2.id}`, 'success');

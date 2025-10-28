@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "node server.js",
+    "dev:old": "next dev --turbopack",
     "dev:socket": "node socket-server.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run dev:socket\"",
     "build": "next build --turbopack",
-    "start": "next start",
-    "start:socket": "node socket-server.js"
+    "start": "NODE_ENV=production node server.js",
+    "start:next": "next start"
   },
   "dependencies": {
     "react": "19.1.0",
