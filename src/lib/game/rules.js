@@ -2,7 +2,7 @@
 // KISS: Pure functions for game rule validation
 // No side effects - just validate and compute legal moves
 
-import { SAFE_CELLS, PLAYERS } from "@/app/game/constants";
+import { SAFE_CELLS, PLAYERS } from "../../app/game/constants.js";
 
 const BOARD_SIZE = 68;
 const TOKENS_PER_PLAYER = 4;

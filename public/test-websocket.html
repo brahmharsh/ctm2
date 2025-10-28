@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Game Tester</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .player-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .player-panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .player-1 h2 { color: #f59e0b; }
+        .player-2 h2 { color: #3b82f6; }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        .status.connected {
+            background: #d1fae5;
+            color: #065f46;
+            border: 2px solid #10b981;
+        }
+        .status.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 2px solid #ef4444;
+        }
+        .status.waiting {
+            background: #fef3c7;
+            color: #92400e;
+            border: 2px solid #f59e0b;
+        }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+        .log-entry.success {
+            border-left-color: #10b981;
+            color: #86efac;
+        }
+        .log-entry.error {
+            border-left-color: #ef4444;
+            color: #fca5a5;
+        }
+        .log-entry.info {
+            border-left-color: #3b82f6;
+            color: #93c5fd;
+        }
+        .log-entry.warn {
+            border-left-color: #f59e0b;
+            color: #fcd34d;
+        }
+        .game-state {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .game-state h3 {
+            color: #374151;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .game-state pre {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 11px;
+        }
+        .moves-list {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        .move-option {
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s ease;
+        }
+        .move-option:hover {
+            border-color: #667eea;
+            background: #f9fafb;
+        }
+        .move-option.selected {
+            border-color: #10b981;
+            background: #d1fae5;
+        }
+        .instructions {
+            background: #eff6ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
+        }
+        .instructions h3 {
+            color: #1e40af;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            color: #1e3a8a;
+        }
+        .instructions li {
+            margin-bottom: 5px;
+        }
+        .timestamp {
+            color: #9ca3af;
+            font-size: 10px;
+            margin-right: 8px;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎮 WebSocket Game Tester</h1>
+        <p>End-to-End Testing for Parchís Multiplayer Game</p>
+    </div>
+
+    <div class="container">
+        <!-- Player 1 Panel -->
+        <div class="player-panel player-1">
+            <h2>🟡 Player 1 (Yellow)</h2>
+            
+            <div class="instructions">
+                <h3>Testing Steps:</h3>
+                <ol>
+                    <li>Click "Connect" for both players</li>
+                    <li>Click "Join Game" for both players</li>
+                    <li>Click "Start Game" (either player)</li>
+                    <li>Take turns rolling dice and moving tokens</li>
+                    <li>Watch the logs for real-time updates</li>
+                </ol>
+            </div>
+
+            <div id="status1" class="status disconnected">
+                ⚫ Disconnected
+            </div>
+
+            <div class="controls">
+                <div class="input-group">
+                    <input type="text" id="room1" value="test-room" placeholder="Room ID">
+                </div>
+                <button class="btn-primary" onclick="connect1()">Connect</button>
+                <button class="btn-success" onclick="join1()" disabled id="joinBtn1">Join Game</button>
+                <button class="btn-warning" onclick="startGame1()" disabled id="startBtn1">Start Game</button>
+                <button class="btn-warning" onclick="rollDice1()" disabled id="rollBtn1">Roll Dice</button>
+                <button class="btn-danger" onclick="disconnect1()">Disconnect</button>
+            </div>
+
+            <div id="moves1" class="moves-list" style="display: none;">
+                <h3>Legal Moves:</h3>
+                <div id="movesList1"></div>
+            </div>
+
+            <div class="game-state">
+                <h3>Game State:</h3>
+                <pre id="gameState1">Waiting for connection...</pre>
+            </div>
+
+            <div class="log" id="log1">
+                <div class="log-entry info">Console ready. Click Connect to start.</div>
+            </div>
+        </div>
+
+        <!-- Player 2 Panel -->
+        <div class="player-panel player-2">
+            <h2>🔵 Player 2 (Blue)</h2>
+            
+            <div class="instructions">
+                <h3>Game Rules:</h3>
+                <ol>
+                    <li>Roll a 5 to leave base</li>
+                    <li>Capture opponents (not on safe cells)</li>
+                    <li>Capturing grants +20 bonus move</li>
+                    <li>First to get all 4 tokens home wins!</li>
+                </ol>
+            </div>
+
+            <div id="status2" class="status disconnected">
+                ⚫ Disconnected
+            </div>
+
+            <div class="controls">
+                <div class="input-group">
+                    <input type="text" id="room2" value="test-room" placeholder="Room ID">
+                </div>
+                <button class="btn-primary" onclick="connect2()">Connect</button>
+                <button class="btn-success" onclick="join2()" disabled id="joinBtn2">Join Game</button>
+                <button class="btn-warning" onclick="startGame2()" disabled id="startBtn2">Start Game</button>
+                <button class="btn-warning" onclick="rollDice2()" disabled id="rollBtn2">Roll Dice</button>
+                <button class="btn-danger" onclick="disconnect2()">Disconnect</button>
+            </div>
+
+            <div id="moves2" class="moves-list" style="display: none;">
+                <h3>Legal Moves:</h3>
+                <div id="movesList2"></div>
+            </div>
+
+            <div class="game-state">
+                <h3>Game State:</h3>
+                <pre id="gameState2">Waiting for connection...</pre>
+            </div>
+
+            <div class="log" id="log2">
+                <div class="log-entry info">Console ready. Click Connect to start.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket1 = null;
+        let socket2 = null;
+        let currentMoves1 = [];
+        let currentMoves2 = [];
+
+        function getTimestamp() {
+            return new Date().toLocaleTimeString();
+        }
+
+        function log(player, message, type = 'info') {
+            const logEl = document.getElementById(`log${player}`);
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="timestamp">[${getTimestamp()}]</span>${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function updateStatus(player, status, text) {
+            const statusEl = document.getElementById(`status${player}`);
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = text;
+        }
+
+        function updateGameState(player, state) {
+            const stateEl = document.getElementById(`gameState${player}`);
+            stateEl.textContent = JSON.stringify(state, null, 2);
+        }
+
+        // Player 1 Functions
+        function connect1() {
+            log(1, 'Connecting to Socket.IO server...', 'info');
+            socket1 = io('http://localhost:3001');
+
+            socket1.on('connect', () => {
+                log(1, `✅ Connected! Socket ID: ${socket1.id}`, 'success');
+                updateStatus(1, 'connected', '🟢 Connected');
+                document.getElementById('joinBtn1').disabled = false;
+            });
+
+            socket1.on('disconnect', () => {
+                log(1, '❌ Disconnected from server', 'error');
+                updateStatus(1, 'disconnected', '⚫ Disconnected');
+            });
+
+            socket1.on('error', (error) => {
+                log(1, `❌ Error: ${error.message}`, 'error');
+            });
+
+            socket1.on('game:joined', (data) => {
+                log(1, `✅ Joined game! Room: ${data.roomId}, Players: ${data.playerCount}`, 'success');
+                updateStatus(1, 'waiting', `⏳ In lobby (${data.playerCount}/4)`);
+                document.getElementById('startBtn1').disabled = false;
+            });
+
+            socket1.on('room:update', (data) => {
+                log(1, `👥 Room updated: ${data.players.join(', ')} (${data.playerCount} players)`, 'info');
+            });
+
+            socket1.on('game:started', (data) => {
+                log(1, `🎮 Game started! Current player: ${data.currentPlayer}`, 'success');
+                updateGameState(1, data.gameState);
+                if (data.currentPlayer === 'player_1') {
+                    document.getElementById('rollBtn1').disabled = false;
+                }
+            });
+
+            socket1.on('update:state', (data) => {
+                log(1, '📊 Game state updated', 'info');
+                updateGameState(1, data.gameState);
+            });
+
+            socket1.on('roll:result', (data) => {
+                log(1, `🎲 ${data.playerId} rolled: [${data.dice.join(', ')}]`, 'success');
+                log(1, `Legal moves: ${data.legalMoves.length}`, 'info');
+                
+                if (data.playerId === 'player_1') {
+                    currentMoves1 = data.legalMoves;
+                    displayMoves(1, data.legalMoves);
+                }
+            });
+
+            socket1.on('move:result', (data) => {
+                const msg = `🚀 ${data.playerId} moved token ${data.tokenId} from ${data.from} to ${data.to}`;
+                log(1, msg, 'success');
+                if (data.captured) {
+                    log(1, `💥 Captured ${data.captured.playerId}'s token! Bonus: +${data.bonusMove}`, 'warn');
+                }
+            });
+
+            socket1.on('turn:end', (data) => {
+                log(1, `⏭️ Turn ended. Next player: ${data.nextPlayer}`, 'info');
+                document.getElementById('rollBtn1').disabled = data.nextPlayer !== 'player_1';
+                document.getElementById('moves1').style.display = 'none';
+            });
+
+            socket1.on('game:win', (data) => {
+                log(1, `🏆 GAME OVER! Winner: ${data.winner}`, 'success');
+                alert(`🏆 ${data.winner} wins the game!`);
+            });
+
+            socket1.on('player:left', (data) => {
+                log(1, `👋 ${data.playerId} left the game`, 'warn');
+            });
+        }
+
+        function join1() {
+            const roomId = document.getElementById('room1').value;
+            log(1, `Joining room: ${roomId}...`, 'info');
+            socket1.emit('game:join', { roomId, playerId: 'player_1' });
+        }
+
+        function startGame1() {
+            log(1, 'Starting game...', 'info');
+            socket1.emit('game:start', {});
+        }
+
+        function rollDice1() {
+            log(1, 'Rolling dice...', 'info');
+            socket1.emit('roll:dice', {});
+            document.getElementById('rollBtn1').disabled = true;
+        }
+
+        function disconnect1() {
+            if (socket1) {
+                socket1.disconnect();
+                socket1 = null;
+                document.getElementById('joinBtn1').disabled = true;
+                document.getElementById('startBtn1').disabled = true;
+                document.getElementById('rollBtn1').disabled = true;
+            }
+        }
+
+        function displayMoves(player, moves) {
+            const movesDiv = document.getElementById(`moves${player}`);
+            const movesList = document.getElementById(`movesList${player}`);
+            movesList.innerHTML = '';
+
+            if (moves.length === 0) {
+                movesDiv.style.display = 'none';
+                return;
+            }
+
+            movesDiv.style.display = 'block';
+            moves.forEach((move, index) => {
+                const moveEl = document.createElement('div');
+                moveEl.className = 'move-option';
+                moveEl.innerHTML = `
+                    <strong>Token ${move.tokenId}:</strong> 
+                    ${move.from === -1 ? 'Base' : move.from} → ${move.to}
+                    ${move.type === 'leave_base' ? '(Leave Base)' : `(${move.steps} steps)`}
+                `;
+                moveEl.onclick = () => executeMove(player, move);
+                movesList.appendChild(moveEl);
+            });
+        }
+
+        function executeMove(player, move) {
+            const socket = player === 1 ? socket1 : socket2;
+            log(player, `Executing move: Token ${move.tokenId} to position ${move.to}`, 'info');
+            socket.emit('move:token', { tokenId: move.tokenId, newPosition: move.to });
+            document.getElementById(`moves${player}`).style.display = 'none';
+        }
+
+        // Player 2 Functions
+        function connect2() {
+            log(2, 'Connecting to Socket.IO server...', 'info');
+            socket2 = io('http://localhost:3001');
+
+            socket2.on('connect', () => {
+                log(2, `✅ Connected! Socket ID: ${socket2.id}`, 'success');
+                updateStatus(2, 'connected', '🟢 Connected');
+                document.getElementById('joinBtn2').disabled = false;
+            });
+
+            socket2.on('disconnect', () => {
+                log(2, '❌ Disconnected from server', 'error');
+                updateStatus(2, 'disconnected', '⚫ Disconnected');
+            });
+
+            socket2.on('error', (error) => {
+                log(2, `❌ Error: ${error.message}`, 'error');
+            });
+
+            socket2.on('game:joined', (data) => {
+                log(2, `✅ Joined game! Room: ${data.roomId}, Players: ${data.playerCount}`, 'success');
+                updateStatus(2, 'waiting', `⏳ In lobby (${data.playerCount}/4)`);
+                document.getElementById('startBtn2').disabled = false;
+            });
+
+            socket2.on('room:update', (data) => {
+                log(2, `👥 Room updated: ${data.players.join(', ')} (${data.playerCount} players)`, 'info');
+            });
+
+            socket2.on('game:started', (data) => {
+                log(2, `🎮 Game started! Current player: ${data.currentPlayer}`, 'success');
+                updateGameState(2, data.gameState);
+                if (data.currentPlayer === 'player_2') {
+                    document.getElementById('rollBtn2').disabled = false;
+                }
+            });
+
+            socket2.on('update:state', (data) => {
+                log(2, '📊 Game state updated', 'info');
+                updateGameState(2, data.gameState);
+            });
+
+            socket2.on('roll:result', (data) => {
+                log(2, `🎲 ${data.playerId} rolled: [${data.dice.join(', ')}]`, 'success');
+                log(2, `Legal moves: ${data.legalMoves.length}`, 'info');
+                
+                if (data.playerId === 'player_2') {
+                    currentMoves2 = data.legalMoves;
+                    displayMoves(2, data.legalMoves);
+                }
+            });
+
+            socket2.on('move:result', (data) => {
+                const msg = `🚀 ${data.playerId} moved token ${data.tokenId} from ${data.from} to ${data.to}`;
+                log(2, msg, 'success');
+                if (data.captured) {
+                    log(2, `💥 Captured ${data.captured.playerId}'s token! Bonus: +${data.bonusMove}`, 'warn');
+                }
+            });
+
+            socket2.on('turn:end', (data) => {
+                log(2, `⏭️ Turn ended. Next player: ${data.nextPlayer}`, 'info');
+                document.getElementById('rollBtn2').disabled = data.nextPlayer !== 'player_2';
+                document.getElementById('moves2').style.display = 'none';
+            });
+
+            socket2.on('game:win', (data) => {
+                log(2, `🏆 GAME OVER! Winner: ${data.winner}`, 'success');
+                alert(`🏆 ${data.winner} wins the game!`);
+            });
+
+            socket2.on('player:left', (data) => {
+                log(2, `👋 ${data.playerId} left the game`, 'warn');
+            });
+        }
+
+        function join2() {
+            const roomId = document.getElementById('room2').value;
+            log(2, `Joining room: ${roomId}...`, 'info');
+            socket2.emit('game:join', { roomId, playerId: 'player_2' });
+        }
+
+        function startGame2() {
+            log(2, 'Starting game...', 'info');
+            socket2.emit('game:start', {});
+        }
+
+        function rollDice2() {
+            log(2, 'Rolling dice...', 'info');
+            socket2.emit('roll:dice', {});
+            document.getElementById('rollBtn2').disabled = true;
+        }
+
+        function disconnect2() {
+            if (socket2) {
+                socket2.disconnect();
+                socket2 = null;
+                document.getElementById('joinBtn2').disabled = true;
+                document.getElementById('startBtn2').disabled = true;
+                document.getElementById('rollBtn2').disabled = true;
+            }
+        }
+    </script>
+</body>
+</html>
