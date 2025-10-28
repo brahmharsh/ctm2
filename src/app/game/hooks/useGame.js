@@ -12,7 +12,7 @@ import {
   onStateUpdate,
   onTurnEnd,
   onRoomUpdate,
-} from "../../../client/socket/client";
+} from "@/client/socket/client";
 
 export function useGame() {
   const canvasRef = useRef(null);

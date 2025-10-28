@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logger } from "../../../../shared/logging/logger.js";
+import { logger } from "@/shared/logging/logger.js";
 
 // Simple in-memory counter (process-local). For production, move to Redis or DB.
 let counterValue = 0;

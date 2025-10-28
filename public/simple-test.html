@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        margin: 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .log {
+        background: #1a1a1a;
+        color: #00ff00;
+        padding: 15px;
+        margin-top: 20px;
+        border-radius: 5px;
+        height: 400px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 14px;
+      }
+      .status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+        font-weight: bold;
+      }
+      .status.connected {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status.disconnected {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      h1 {
+        color: #333;
+      }
+      .info {
+        background: #e7f3ff;
+        padding: 15px;
+        border-left: 4px solid #007bff;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎮 Quick WebSocket Test</h1>
+
+      <div class="info">
+        <strong>Instructions:</strong>
+        <ol>
+          <li>Click "Connect & Auto-Join" below</li>
+          <li>Open this page in another tab/window</li>
+          <li>Click "Connect & Auto-Join" there too</li>
+          <li>Game will auto-start when 2 players join!</li>
+          <li>Use "Roll Dice" to play</li>
+        </ol>
+      </div>
+
+      <div id="status" class="status disconnected">⚫ Disconnected</div>
+
+      <div>
+        <button onclick="quickStart()">Connect & Auto-Join</button>
+        <button onclick="startGame()" id="startBtn" disabled>Start Game</button>
+        <button onclick="rollDice()" id="rollBtn" disabled>Roll Dice</button>
+        <button onclick="disconnect()">Disconnect</button>
+      </div>
+
+      <div class="log" id="log"></div>
+    </div>
+
+    <script>
+      let socket = null;
+      let playerId = `player_${Math.random().toString(36).substr(2, 9)}`;
+      let roomId = "test-room";
+
+      function log(message, color = "#00ff00") {
+        const logEl = document.getElementById("log");
+        const timestamp = new Date().toLocaleTimeString();
+        const entry = document.createElement("div");
+        entry.style.color = color;
+        entry.textContent = `[${timestamp}] ${message}`;
+        logEl.appendChild(entry);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function updateStatus(connected) {
+        const statusEl = document.getElementById("status");
+        if (connected) {
+          statusEl.className = "status connected";
+          statusEl.textContent = "🟢 Connected";
+        } else {
+          statusEl.className = "status disconnected";
+          statusEl.textContent = "⚫ Disconnected";
+        }
+      }
+
+      function quickStart() {
+        log("🔌 Connecting to WebSocket...", "#00aaff");
+        socket = io("http://localhost:3000");
+
+        socket.on("connect", () => {
+          log(`✅ Connected! Socket ID: ${socket.id}`, "#00ff00");
+          updateStatus(true);
+
+          // Auto-join the game
+          setTimeout(() => {
+            log(
+              `🎮 Auto-joining room '${roomId}' as ${playerId}...`,
+              "#ffaa00"
+            );
+            socket.emit("game:join", { roomId, playerId });
+          }, 500);
+        });
+
+        socket.on("disconnect", () => {
+          log("❌ Disconnected", "#ff0000");
+          updateStatus(false);
+          document.getElementById("rollBtn").disabled = true;
+          document.getElementById("startBtn").disabled = true;
+        });
+
+        socket.on("game:joined", (data) => {
+          log(`✅ Joined! Players in room: ${data.playerCount}`, "#00ff00");
+          document.getElementById("startBtn").disabled = false;
+
+          // Auto-start if 2+ players
+          if (data.playerCount >= 2) {
+            setTimeout(() => {
+              log("🚀 Auto-starting game (2+ players)...", "#ffaa00");
+              socket.emit("game:start", {});
+            }, 1000);
+          }
+        });
+
+        socket.on("room:update", (data) => {
+          log(
+            `👥 Room update: ${data.players.join(", ")} (${
+              data.playerCount
+            } players)`,
+            "#00aaff"
+          );
+
+          // Auto-start if 2+ players and not started yet
+          if (data.playerCount >= 2) {
+            setTimeout(() => {
+              log("🚀 Attempting auto-start...", "#ffaa00");
+              socket.emit("game:start", {});
+            }, 1500);
+          }
+        });
+
+        socket.on("game:started", (data) => {
+          log(
+            `🎮 GAME STARTED! Current player: ${data.currentPlayer}`,
+            "#00ff00"
+          );
+          log(`Your player ID: ${playerId}`, "#ffaa00");
+
+          if (data.currentPlayer === playerId) {
+            document.getElementById("rollBtn").disabled = false;
+            log('🎲 It\'s YOUR turn! Click "Roll Dice"', "#ffff00");
+          } else {
+            log("⏳ Waiting for your turn...", "#aaaaaa");
+          }
+        });
+
+        socket.on("update:state", (data) => {
+          log("📊 Game state updated", "#00aaff");
+          console.log("Game State:", data.gameState);
+        });
+
+        socket.on("roll:result", (data) => {
+          const diceStr = data.dice.join(", ");
+          log(`🎲 ${data.playerId} rolled: [${diceStr}]`, "#ffff00");
+          log(`   Legal moves: ${data.legalMoves.length}`, "#aaaaaa");
+
+          if (data.playerId === playerId && data.legalMoves.length > 0) {
+            // Auto-select first legal move for simplicity
+            const move = data.legalMoves[0];
+            log(`   Auto-executing first move: token ${move} steps`, "#ffaa00");
+            setTimeout(() => {
+              const totalDice = data.dice.reduce((a, b) => a + b, 0);
+              socket.emit("move:token", {
+                tokenId: move,
+                newPosition: totalDice,
+              });
+            }, 1000);
+          }
+        });
+
+        socket.on("move:result", (data) => {
+          log(`🚀 ${data.playerId} moved token ${data.tokenId}`, "#00ff00");
+          if (data.captured) {
+            log(`   💥 Captured! Bonus move granted`, "#ff00ff");
+          }
+        });
+
+        socket.on("turn:end", (data) => {
+          log(`⏭️  Turn ended. Next: ${data.nextPlayer}`, "#00aaff");
+
+          if (data.nextPlayer === playerId) {
+            document.getElementById("rollBtn").disabled = false;
+            log('🎲 It\'s YOUR turn! Click "Roll Dice"', "#ffff00");
+          } else {
+            document.getElementById("rollBtn").disabled = true;
+            log("⏳ Waiting for your turn...", "#aaaaaa");
+          }
+        });
+
+        socket.on("game:win", (data) => {
+          log(`🏆 GAME OVER! Winner: ${data.winner}`, "#ffff00");
+          if (data.winner === playerId) {
+            log("🎉 YOU WON! Congratulations!", "#00ff00");
+          } else {
+            log("😔 You lost. Better luck next time!", "#ff6600");
+          }
+          document.getElementById("rollBtn").disabled = true;
+        });
+
+        socket.on("game:error", (error) => {
+          log(`❌ Error: ${error.message}`, "#ff0000");
+        });
+      }
+
+      function startGame() {
+        if (!socket) return;
+        log("🚀 Starting game manually...", "#ffaa00");
+        socket.emit("game:start", {});
+      }
+
+      function rollDice() {
+        if (!socket) return;
+        log("🎲 Rolling dice...", "#ffaa00");
+        socket.emit("roll:dice", {});
+        document.getElementById("rollBtn").disabled = true;
+      }
+
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+          log("👋 Disconnected manually", "#ff6600");
+        }
+      }
+
+      // Auto-connect on page load for even easier testing
+      window.addEventListener("load", () => {
+        log('💡 Tip: Click "Connect & Auto-Join" to start!', "#00aaff");
+        log(`💡 Your Player ID will be: ${playerId}`, "#aaaaaa");
+      });
+    </script>
+  </body>
+</html>
