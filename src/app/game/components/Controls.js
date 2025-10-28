@@ -13,6 +13,8 @@ export default function Controls({
   rollDice,
   toggleDebug,
   changeColor,
+  gameStarted,
+  startGame,
 }) {
   // Get the index of the current player for display
   const currentPlayerIndex = players.findIndex((p) => p.id === playerId);
@@ -21,6 +23,14 @@ export default function Controls({
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex gap-2 sm:flex-col">
+        {!gameStarted && players.length >= 2 && (
+          <button
+            onClick={startGame}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700"
+          >
+            🚀 Start Game
+          </button>
+        )}
         <button
           onClick={rollDice}
           disabled={
@@ -35,8 +45,8 @@ export default function Controls({
           {isRolling
             ? "🎲 Rolling..."
             : currentPlayer && currentPlayer.id !== playerId
-              ? `🎲 ${currentPlayer?.id}'s Turn`
-              : "🎲 Roll Dice"}
+            ? `🎲 ${currentPlayer?.id}'s Turn`
+            : "🎲 Roll Dice"}
         </button>
         <button
           onClick={toggleDebug}
@@ -54,6 +64,27 @@ export default function Controls({
           }`}
         >
           🎨 Next Player ({playerNumber}/{players.length})
+        </button>
+        {/* Demo REST counter button */}
+        <button
+          onClick={async () => {
+            try {
+              const inc = await import("../services/api").then((m) =>
+                m.api.incrementCounter()
+              );
+              console.log("[REST] Counter increment response", inc);
+              const current = await import("../services/api").then((m) =>
+                m.api.getCounter()
+              );
+              console.log("[REST] Counter current value", current);
+              alert(`Counter value: ${current.data?.value}`);
+            } catch (e) {
+              console.error("[REST] Counter error", e);
+            }
+          }}
+          className="px-6 py-2 bg-teal-600 text-white rounded-lg shadow-md hover:bg-teal-700"
+        >
+          🧪 Demo REST (Counter)
         </button>
       </div>
       <p ref={diceResultRef} className="mt-2 text-lg font-semibold"></p>

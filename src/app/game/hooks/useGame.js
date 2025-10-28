@@ -5,6 +5,14 @@ import { buildPath } from "../game-logic";
 import { drawBoard } from "../drawing";
 import { GRID_SIZE, START_CELLS, PLAYERS } from "../constants";
 import { api } from "../services/api";
+import {
+  initSocket,
+  joinGame as wsJoinGame,
+  rollDice as wsRollDice,
+  onStateUpdate,
+  onTurnEnd,
+  onRoomUpdate,
+} from "../../../client/socket/client";
 
 export function useGame() {
   const canvasRef = useRef(null);
@@ -39,28 +47,81 @@ export function useGame() {
     piecesRef.current = pieces;
   }, [pieces]);
 
-  // Initialize game and join as player_1
+  // Initialize game and join as player_1 via WebSocket; still call REST reset for clean state
   useEffect(() => {
+    let unsubscribeState = () => {};
+    let unsubscribeTurn = () => {};
+    let unsubscribeRoom = () => {};
+
     const initializeGame = async () => {
       try {
-        // Reset game first
+        console.log("[Init] Resetting game via REST before WebSocket join");
         await api.resetGame();
 
-        // Join as player_1
-        const response = await api.joinGame("player_1");
-        if (response.success) {
+        console.log("[Socket] Initializing socket connection");
+        initSocket();
+
+        // Subscribe to room updates (players join/leave)
+        unsubscribeRoom = onRoomUpdate((data) => {
+          console.log("[Socket] Room update received", data);
+          // Rebuild players list from room update if possible (we only get IDs, so keep existing color mapping)
+          setPlayers((prev) => {
+            // If we have detailed players from prior state use them; else map to placeholder
+            if (prev.length && prev.every((p) => p.id)) {
+              const idToPlayer = Object.fromEntries(prev.map((p) => [p.id, p]));
+              return data.players.map(
+                (pid) => idToPlayer[pid] || { id: pid, color: "unknown" }
+              );
+            }
+            return data.players.map((pid) => ({ id: pid, color: "unknown" }));
+          });
+        });
+
+        // Subscribe to state updates
+        unsubscribeState = onStateUpdate((data) => {
+          if (!data?.gameState) return;
+          const gs = data.gameState;
+          setPlayers(gs.players);
+          if (
+            gs.currentPlayerIndex != null &&
+            gs.players[gs.currentPlayerIndex]
+          ) {
+            setCurrentPlayer(gs.players[gs.currentPlayerIndex]);
+          }
+          setGameStarted(gs.gameStarted);
+        });
+
+        // Subscribe to turn end updates
+        unsubscribeTurn = onTurnEnd((data) => {
+          console.log("[Socket] Turn end", data);
+          if (data?.nextPlayer) {
+            setCurrentPlayer((prev) => {
+              return players.find((p) => p.id === data.nextPlayer) || prev;
+            });
+          }
+        });
+
+        // Join as player_1 via WebSocket
+        wsJoinGame("test-room", "player_1", (err, data) => {
+          if (err) {
+            console.error("[Socket] Join error", err);
+            return;
+          }
+          console.log("[Socket] Joined room", data);
           setPlayerId("player_1");
-          setPieceColor(response.data.player.color);
-          setPlayers(response.data.gameState.players);
-          setCurrentPlayer(response.data.gameState.players[0]);
-          setGameStarted(true);
-        }
+          // player color will come in first state update; for now placeholder
+        });
       } catch (error) {
-        console.error("Error initializing game:", error);
+        console.error("Error initializing game (WebSocket):", error);
       }
     };
 
     initializeGame();
+    return () => {
+      unsubscribeState();
+      unsubscribeTurn();
+      unsubscribeRoom();
+    };
   }, []);
 
   // Simulate other players joining
@@ -714,35 +775,31 @@ export function useGame() {
 
   const rollDice = async () => {
     if (isRolling || !playerId) return;
-
     setIsRolling(true);
-
     try {
-      // Call the mock API
-      const response = await api.rollDice(playerId);
-
-      if (response.success && diceResultRef.current) {
-        diceResultRef.current.innerText = `🎲 Dice: ${response.data.dice}`;
-
-        // Update current player
-        const nextPlayer = players.find(
-          (p) => p.id === response.data.nextPlayer
-        );
-        setCurrentPlayer(nextPlayer);
-
-        // Move the piece with the result from the server
-        if (moveToIndexRef.current) {
-          moveToIndexRef.current(playerId, response.data.dice);
+      console.log("[Socket] Emitting roll:dice");
+      wsRollDice((err, data) => {
+        if (err) {
+          console.error("[Socket] Roll error", err);
+          if (diceResultRef.current)
+            diceResultRef.current.innerText = err.message || "Roll error";
+          setIsRolling(false);
+          return;
         }
-      } else if (!response.success && diceResultRef.current) {
-        diceResultRef.current.innerText = response.error;
-      }
-    } catch (error) {
-      console.error("Error rolling dice:", error);
-      if (diceResultRef.current) {
-        diceResultRef.current.innerText = "Error rolling dice";
-      }
-    } finally {
+        if (diceResultRef.current) {
+          diceResultRef.current.innerText = `🎲 Dice: ${data.dice.join(", ")}`;
+        }
+        // Move piece locally for simple animation (combine dice values for now)
+        if (moveToIndexRef.current) {
+          // Example: use sum of dice for movement animation (adjust when legalMoves selection UI exists)
+          const steps = data.dice.reduce((a, b) => a + b, 0);
+          moveToIndexRef.current(playerId, steps);
+        }
+        setIsRolling(false);
+      });
+    } catch (e) {
+      console.error("[Socket] Roll unexpected error", e);
+      if (diceResultRef.current) diceResultRef.current.innerText = "Roll error";
       setIsRolling(false);
     }
   };

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { gameStore } from "@/lib/game/store";
-import { logger } from "@/lib/api/logger";
+import { simpleGameStore as gameStore } from "../../../../core/game/index.js"; // migrated to core layer
+import { logger } from "../../../../shared/logging/logger.js";
 
 export async function GET(request, { params }) {
   const { action } = await params;
@@ -135,4 +135,3 @@ export async function POST(request, { params }) {
     }
   }
 }
-

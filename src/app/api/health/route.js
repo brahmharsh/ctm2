@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logger } from "@/lib/api/logger";
+import { logger } from "../../../shared/logging/logger.js";
 
 export async function GET() {
   const timestamp = new Date().toISOString();

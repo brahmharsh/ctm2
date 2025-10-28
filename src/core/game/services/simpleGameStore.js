@@ -1,5 +1,5 @@
-// Central in-memory game store (server-side only)
-// KISS: simple mutable object; in production you'd swap for DB or persistent cache.
+// Simple REST-oriented game store (migrated from src/lib/game/store.js)
+// Keeps REST demo endpoints functional independent of real-time roomService state.
 import { PLAYERS } from "@/app/game/constants";
 
 const initialState = () => ({
@@ -14,14 +14,13 @@ function serializeState() {
     ...gameState,
     players: gameState.players.map((p) => ({
       ...p,
-      // Ensure color + startCell derived from PLAYERS for consistency
       color: PLAYERS[p.id].color,
       startCell: PLAYERS[p.id].startCell,
     })),
   };
 }
 
-export const gameStore = {
+export const simpleGameStore = {
   getState() {
     return serializeState();
   },
@@ -70,7 +69,7 @@ export const gameStore = {
         dice,
         player: playerId,
         newPosition: currentPlayer.position,
-        nextPlayer: gameState.players[gameState.currentPlayerIndex].id,
+        nextPlayer: gameState.players[gameState.currentPlayerIndex]?.id,
         gameState: serializeState(),
       },
     };

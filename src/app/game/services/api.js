@@ -22,6 +22,18 @@ export const api = {
     const res = await fetch("/api/game/state", { cache: "no-store" });
     return handleResponse(res);
   },
+  getCounter: async () => {
+    const res = await fetch("/api/game/counter", { cache: "no-store" });
+    return handleResponse(res);
+  },
+  incrementCounter: async () => {
+    const res = await fetch("/api/game/counter", { method: "POST" });
+    return handleResponse(res);
+  },
+  resetCounter: async () => {
+    const res = await fetch("/api/game/counter", { method: "DELETE" });
+    return handleResponse(res);
+  },
   joinGame: async (playerId) => {
     const res = await fetch("/api/game/join", {
       method: "POST",
