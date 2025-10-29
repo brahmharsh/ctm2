@@ -27,9 +27,11 @@ export function initSocket() {
 
   return socket;
 }
+
 export function getSocket() {
   return socket;
 }
+
 export function disconnectSocket() {
   if (socket) {
     socket.disconnect();
@@ -37,9 +39,9 @@ export function disconnectSocket() {
   }
 }
 
-export function joinGame(roomId, playerId, cb) {
+export function joinGame(roomId, playerId, requiredPlayers, cb) {
   const s = initSocket();
-  s.emit("game:join", { roomId, playerId });
+  s.emit("game:join", { roomId, playerId, requiredPlayers });
   s.once("game:joined", (data) => {
     console.log("[Socket] Joined game:", data);
     cb && cb(null, data);
@@ -137,4 +139,13 @@ export function onPlayerLeft(cb) {
     cb && cb(d);
   });
   return () => s.off("player:left", cb);
+}
+export function onGameStarted(cb) {
+  const s = getSocket();
+  if (!s) return () => {};
+  s.on("game:started", (d) => {
+    console.log("[Socket] Game started event:", d);
+    cb && cb(d);
+  });
+  return () => s.off("game:started", cb);
 }

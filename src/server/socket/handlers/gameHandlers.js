@@ -1,14 +1,14 @@
 // Socket.IO game-related handlers extracted from previous socket-server.js
 // Focus: translate transport events to core services.
 import { logger } from "../../../shared/logging/logger.js";
-import { roomService } from "../../../core/game/services/roomService.js";
-import { gameService } from "../../../core/game/services/gameService.js";
+import { roomService } from "../../../core/ludo/services/roomService.js";
+import { gameService } from "../../../core/ludo/services/gameService.js";
 
 export function registerGameHandlers(io, socket) {
   // game:join
   socket.on("game:join", (payload = {}) => {
     try {
-      const { roomId, playerId } = payload;
+      const { roomId, playerId, requiredPlayers } = payload;
       if (!roomId || !playerId) {
         return socket.emit("game:error", {
           message: "Missing roomId or playerId",
@@ -16,7 +16,12 @@ export function registerGameHandlers(io, socket) {
         });
       }
 
-      const result = roomService.joinRoom(roomId, socket.id, playerId);
+      const result = roomService.joinRoom(
+        roomId,
+        socket.id,
+        playerId,
+        requiredPlayers
+      );
       if (!result.success) {
         return socket.emit("game:error", {
           message: result.error,
@@ -29,14 +34,37 @@ export function registerGameHandlers(io, socket) {
         roomId,
         playerId,
         playerCount: result.playerCount,
+        requiredPlayers: result.requiredPlayers,
         players: result.players,
       });
       io.to(roomId).emit("room:update", {
         roomId,
         playerCount: result.playerCount,
+        requiredPlayers: result.requiredPlayers,
         players: result.players,
       });
       logger.info("Player joined successfully", { roomId, playerId });
+
+      // Auto-start game when all players joined
+      if (result.shouldAutoStart) {
+        logger.info("Auto-starting game", {
+          roomId,
+          playerCount: result.playerCount,
+        });
+        setTimeout(() => {
+          const startResult = gameService.startGame(roomId);
+          if (startResult.success) {
+            io.to(roomId).emit("game:started", {
+              gameState: startResult.gameState,
+              currentPlayer: startResult.gameState.players[0].id,
+            });
+            io.to(roomId).emit("update:state", {
+              gameState: startResult.gameState,
+            });
+            logger.info("Game auto-started successfully", { roomId });
+          }
+        }, 1000); // Small delay for better UX
+      }
     } catch (error) {
       logger.error("game:join handler error", { error: error.message });
       socket.emit("game:error", {
@@ -100,10 +128,12 @@ export function registerGameHandlers(io, socket) {
         legalMoves: result.legalMoves,
       });
 
+      // Always emit turn:end and state update after dice roll (auto-advance)
       if (result.autoAdvanced) {
         io.to(roomId).emit("turn:end", {
           nextPlayer: result.nextPlayer,
-          reason: "no_legal_moves",
+          reason:
+            result.legalMoves.length === 0 ? "no_legal_moves" : "auto_advance",
         });
         io.to(roomId).emit("update:state", { gameState: result.gameState });
       }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { simpleGameStore as gameStore } from "@/core/game/index.js";
+import { simpleGameStore as gameStore } from "@/core/ludo/index.js";
 import { logger } from "@/shared/logging/logger.js";
 
 export async function GET(request, { params }) {

@@ -7,23 +7,24 @@ const rooms = new Map(); // roomId -> room object
 const playerToRoom = new Map(); // socketId -> roomId
 const socketToPlayer = new Map(); // socketId -> playerId
 
-function ensureRoom(roomId) {
+function ensureRoom(roomId, requiredPlayers = 2) {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
       id: roomId,
       gameState: null,
       players: new Set(),
+      requiredPlayers: requiredPlayers,
       createdAt: Date.now(),
       startedAt: null,
     });
-    logger.info("Room created", { roomId });
+    logger.info("Room created", { roomId, requiredPlayers });
   }
   return rooms.get(roomId);
 }
 
 export const roomService = {
-  joinRoom(roomId, socketId, playerId) {
-    const room = ensureRoom(roomId);
+  joinRoom(roomId, socketId, playerId, requiredPlayers = 2) {
+    const room = ensureRoom(roomId, requiredPlayers);
 
     if (room.gameState && room.gameState.gameStarted) {
       return { success: false, error: "Game already in progress" };
@@ -46,12 +47,17 @@ export const roomService = {
       playerCount: room.players.size,
     });
 
+    const shouldAutoStart =
+      room.players.size === room.requiredPlayers && !room.gameState;
+
     return {
       success: true,
       roomId,
       playerId,
       playerCount: room.players.size,
+      requiredPlayers: room.requiredPlayers,
       players: Array.from(room.players).map((p) => p.playerId),
+      shouldAutoStart,
     };
   },
   leaveRoom(socketId) {

@@ -6,18 +6,32 @@
 const TOKENS_PER_PLAYER = 4;
 const TRACK_LENGTH = 30; // Arbitrary path length to finish a token
 
+// Color assignment for players (matches frontend constants)
+const PLAYER_COLORS = ["yellow", "blue", "red", "green"];
+const START_CELLS = {
+  yellow: 5,
+  blue: 22,
+  red: 39,
+  green: 56,
+};
+
 // Create an initial game state for provided player ids
 export function createGameState(playerIds) {
   return {
-    players: playerIds.map((id) => ({
-      id,
-      tokens: Array.from({ length: TOKENS_PER_PLAYER }).map((_, i) => ({
-        id: `${id}-t${i + 1}`,
-        position: 0,
-        finished: false,
-      })),
-      finishedTokens: 0,
-    })),
+    players: playerIds.map((id, index) => {
+      const color = PLAYER_COLORS[index % PLAYER_COLORS.length];
+      return {
+        id,
+        color,
+        startCell: START_CELLS[color],
+        tokens: Array.from({ length: TOKENS_PER_PLAYER }).map((_, i) => ({
+          id: `${id}-t${i + 1}`,
+          position: 0,
+          finished: false,
+        })),
+        finishedTokens: 0,
+      };
+    }),
     currentPlayerIndex: 0,
     pendingDice: null, // dice value awaiting resolution
     gameStarted: false,

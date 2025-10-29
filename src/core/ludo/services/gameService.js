@@ -34,6 +34,13 @@ export const gameService = {
       advanceTurn(gameState);
       roomService.updateGameState(roomId, gameState);
       autoAdvanced = true;
+    } else {
+      // For now, auto-advance turn after showing dice (simplified Ludo - no move selection yet)
+      // In full implementation, player would select which piece to move from legalMoves
+      gameState.pendingDice = null;
+      advanceTurn(gameState);
+      roomService.updateGameState(roomId, gameState);
+      autoAdvanced = true;
     }
 
     return {

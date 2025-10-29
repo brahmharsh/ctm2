@@ -84,7 +84,7 @@ const BoardComponents = {
       homeStartX * cellSize,
       homeStartY * cellSize,
       HOME_SIZE * cellSize,
-      HOME_SIZE * cellSize,
+      HOME_SIZE * cellSize
     );
   },
 
@@ -100,7 +100,7 @@ const BoardComponents = {
           (homeStartX + 1) * cellSize,
           (homeStartY - 7) * cellSize,
           tailWidth,
-          tailLength,
+          tailLength
         );
         break;
       case "blue": // Rightward
@@ -108,7 +108,7 @@ const BoardComponents = {
           (homeStartX + HOME_SIZE) * cellSize,
           (homeStartY + 1) * cellSize,
           tailLength,
-          tailWidth,
+          tailWidth
         );
         break;
       case "yellow": // Downward
@@ -116,7 +116,7 @@ const BoardComponents = {
           (homeStartX + 1) * cellSize,
           (homeStartY + HOME_SIZE) * cellSize,
           tailWidth,
-          tailLength,
+          tailLength
         );
         break;
       case "green": // Leftward
@@ -124,7 +124,7 @@ const BoardComponents = {
           (homeStartX - 7) * cellSize,
           (homeStartY + 1) * cellSize,
           tailLength,
-          tailWidth,
+          tailWidth
         );
         break;
     }
@@ -182,7 +182,7 @@ const BoardComponents = {
     secondCell,
     cellSize,
     startCellColors,
-    rotation,
+    rotation
   ) {
     const isHorizontal = firstCell.y === secondCell.y;
 
@@ -354,7 +354,7 @@ const BoardComponents = {
     cellSize,
     pieceColor,
     isCurrentPlayer = false,
-    animationFrame = 0,
+    animationFrame = 0
   ) {
     // Make the current player's piece slightly larger and with a different border
     const baseRadius = cellSize / 3;
@@ -410,9 +410,22 @@ const BoardComponents = {
       x - avatarSize / 2,
       y - avatarSize / 2,
       avatarSize,
-      avatarSize,
+      avatarSize
     );
     ctx.restore();
+  },
+
+  drawInactivePlayerOverlay(ctx, x, y, size, cellSize) {
+    // Draw semi-transparent overlay over inactive player homes
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(x, y, size, size);
+
+    // Draw "Not Playing" text
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.font = `bold ${cellSize * 0.8}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("✕", x + size / 2, y + size / 2);
   },
 };
 
@@ -428,7 +441,7 @@ export function drawBoard(
   imageLoaded,
   avatarImageRef,
   players = [],
-  animationFrame = 0,
+  animationFrame = 0
 ) {
   const size = canvas.width / window.devicePixelRatio;
   const cellSize = size / GRID_SIZE;
@@ -484,7 +497,7 @@ export function drawBoard(
       corner.y,
       cornerPixelSize,
       corner.color,
-      cellSize,
+      cellSize
     );
 
     BoardComponents.drawCornerCircles(ctx, x, y, corner.color, radius);
@@ -498,7 +511,7 @@ export function drawBoard(
           x,
           y - radius - cellSize / 2,
           player.id,
-          cellSize,
+          cellSize
         );
       }
     }
@@ -516,7 +529,7 @@ export function drawBoard(
       homeStartX,
       homeStartY,
       cellSize,
-      color,
+      color
     );
   });
 
@@ -534,7 +547,7 @@ export function drawBoard(
       secondCell,
       cellSize,
       startCellColors,
-      rotation,
+      rotation
     );
   }
 
@@ -557,12 +570,42 @@ export function drawBoard(
         cellSize,
         piece.color,
         isCurrentPlayer,
-        animationFrame,
+        animationFrame
       );
     });
   }
 
   ctx.restore();
+
+  // Hide inactive player homes (for 2-player games, hide red and green)
+  if (players.length === 2) {
+    const cornerPixelSize = CORNER_SIZE * cellSize;
+    // Hide red (top-left) and green (bottom-left) homes
+    BoardComponents.drawInactivePlayerOverlay(
+      ctx,
+      0,
+      0,
+      cornerPixelSize,
+      cellSize
+    ); // Red
+    BoardComponents.drawInactivePlayerOverlay(
+      ctx,
+      0,
+      (GRID_SIZE - CORNER_SIZE) * cellSize,
+      cornerPixelSize,
+      cellSize
+    ); // Green
+  } else if (players.length === 3) {
+    const cornerPixelSize = CORNER_SIZE * cellSize;
+    // Hide green (bottom-left) home
+    BoardComponents.drawInactivePlayerOverlay(
+      ctx,
+      0,
+      (GRID_SIZE - CORNER_SIZE) * cellSize,
+      cornerPixelSize,
+      cellSize
+    ); // Green
+  }
 
   // Draw avatars (outside the rotated context)
   if (imageLoaded && avatarImageRef.current) {
@@ -582,7 +625,7 @@ export function drawBoard(
             x,
             y - circleRadius - cellSize / 2,
             player.id,
-            cellSize,
+            cellSize
           );
         }
       }

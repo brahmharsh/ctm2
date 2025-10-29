@@ -6,15 +6,15 @@ import { drawBoard } from "../drawing";
 import { GRID_SIZE, START_CELLS, PLAYERS } from "../constants";
 import { api } from "../services/api";
 import {
-  initSocket,
-  joinGame as wsJoinGame,
   rollDice as wsRollDice,
+  startGame as wsStartGame,
   onStateUpdate,
   onTurnEnd,
   onRoomUpdate,
-} from "@/client/socket/client";
+  requestGameState,
+} from "@/client/ludo/client";
 
-export function useGame() {
+export function useGame(initialRoomId, initialPlayerId) {
   const canvasRef = useRef(null);
   const diceResultRef = useRef(null);
   const [debug, setDebug] = useState(false);
@@ -23,7 +23,8 @@ export function useGame() {
   const [isRolling, setIsRolling] = useState(false);
   const [players, setPlayers] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState(null);
-  const [playerId, setPlayerId] = useState(null);
+  // Track the current player's id; we need both value and setter (was missing causing runtime error)
+  const [playerId, setPlayerId] = useState(initialPlayerId || null);
   const [gameStarted, setGameStarted] = useState(false);
   const [pieces, setPieces] = useState([]);
   const avatarImageRef = useRef(null);
@@ -47,7 +48,7 @@ export function useGame() {
     piecesRef.current = pieces;
   }, [pieces]);
 
-  // Initialize game and join as player_1 via WebSocket; still call REST reset for clean state
+  // Initialize game state subscribers
   useEffect(() => {
     let unsubscribeState = () => {};
     let unsubscribeTurn = () => {};
@@ -55,18 +56,16 @@ export function useGame() {
 
     const initializeGame = async () => {
       try {
-        console.log("[Init] Resetting game via REST before WebSocket join");
-        await api.resetGame();
-
-        console.log("[Socket] Initializing socket connection");
-        initSocket();
+        console.log("[useGame] Initializing with:", {
+          initialRoomId,
+          initialPlayerId,
+          playerId,
+        });
 
         // Subscribe to room updates (players join/leave)
         unsubscribeRoom = onRoomUpdate((data) => {
-          console.log("[Socket] Room update received", data);
-          // Rebuild players list from room update if possible (we only get IDs, so keep existing color mapping)
+          console.log("[useGame] Room update received:", data);
           setPlayers((prev) => {
-            // If we have detailed players from prior state use them; else map to placeholder
             if (prev.length && prev.every((p) => p.id)) {
               const idToPlayer = Object.fromEntries(prev.map((p) => [p.id, p]));
               return data.players.map(
@@ -79,21 +78,67 @@ export function useGame() {
 
         // Subscribe to state updates
         unsubscribeState = onStateUpdate((data) => {
-          if (!data?.gameState) return;
+          console.log(
+            "[useGame] ★★★ State update received:",
+            JSON.stringify(data, null, 2)
+          );
+          if (!data?.gameState) {
+            console.warn("[useGame] ⚠️ No gameState in update");
+            return;
+          }
           const gs = data.gameState;
+          console.log("[useGame] Processing game state:", {
+            playersCount: gs.players?.length,
+            players: gs.players,
+            currentPlayerIndex: gs.currentPlayerIndex,
+            gameStarted: gs.gameStarted,
+            myPlayerId: playerId,
+          });
+
           setPlayers(gs.players);
           if (
             gs.currentPlayerIndex != null &&
             gs.players[gs.currentPlayerIndex]
           ) {
             setCurrentPlayer(gs.players[gs.currentPlayerIndex]);
+            console.log(
+              "[useGame] ✓ Set current player:",
+              gs.players[gs.currentPlayerIndex]
+            );
           }
           setGameStarted(gs.gameStarted);
+          console.log("[useGame] ✓ Set gameStarted:", gs.gameStarted);
+
+          // Set player color based on playerId
+          const player = gs.players.find((p) => p.id === playerId);
+          console.log("[useGame] Looking for playerId:", playerId);
+          console.log(
+            "[useGame] Available players:",
+            JSON.stringify(gs.players, null, 2)
+          );
+          console.log("[useGame] Found player:", player);
+
+          if (player && player.color) {
+            console.log(
+              "[useGame] ✓ Setting piece color:",
+              player.color,
+              "for player:",
+              playerId
+            );
+            setPieceColor(player.color);
+          } else {
+            console.error(
+              "[useGame] ❌ Could not find player color for:",
+              playerId,
+              "in players:",
+              gs.players
+            );
+          }
         });
 
         // Subscribe to turn end updates
         unsubscribeTurn = onTurnEnd((data) => {
-          console.log("[Socket] Turn end", data);
+          console.log("[useGame] Turn end:", data);
           if (data?.nextPlayer) {
             setCurrentPlayer((prev) => {
               return players.find((p) => p.id === data.nextPlayer) || prev;
@@ -101,18 +146,15 @@ export function useGame() {
           }
         });
 
-        // Join as player_1 via WebSocket
-        wsJoinGame("test-room", "player_1", (err, data) => {
-          if (err) {
-            console.error("[Socket] Join error", err);
-            return;
-          }
-          console.log("[Socket] Joined room", data);
-          setPlayerId("player_1");
-          // player color will come in first state update; for now placeholder
-        });
+        // Request current game state immediately after subscribing
+        // This ensures we get the state even if we missed the initial update:state emission
+        console.log("[useGame] 🔄 Requesting current game state...");
+        requestGameState();
       } catch (error) {
-        console.error("Error initializing game (WebSocket):", error);
+        console.error(
+          "[useGame] ❌ Error initializing game (WebSocket):",
+          error
+        );
       }
     };
 
@@ -122,36 +164,7 @@ export function useGame() {
       unsubscribeTurn();
       unsubscribeRoom();
     };
-  }, []);
-
-  // Simulate other players joining
-  useEffect(() => {
-    if (!gameStarted || players.length >= 4) return;
-
-    const simulatePlayersJoining = async () => {
-      const playerIds = ["player_2", "player_3", "player_4"];
-
-      for (const id of playerIds) {
-        if (players.length >= 4) break;
-
-        // Random delay before next player joins
-        // await new Promise((resolve) =>
-        //   setTimeout(resolve, Math.random() * 2000 + 1000),
-        // );
-
-        try {
-          const response = await api.joinGame(id);
-          if (response.success) {
-            setPlayers((prev) => [...prev, response.data.player]);
-          }
-        } catch (error) {
-          console.error(`Error adding ${id}:`, error);
-        }
-      }
-    };
-
-    simulatePlayersJoining();
-  }, [gameStarted, players.length]);
+  }, [playerId]);
 
   // Initialize pieces when players change
   useEffect(() => {
@@ -786,13 +799,15 @@ export function useGame() {
           setIsRolling(false);
           return;
         }
+        // Normalize dice to array (server may return a single number or an array)
+        const diceArr = Array.isArray(data.dice) ? data.dice : [data.dice];
         if (diceResultRef.current) {
-          diceResultRef.current.innerText = `🎲 Dice: ${data.dice.join(", ")}`;
+          diceResultRef.current.innerText = `🎲 Dice: ${diceArr.join(", ")}`;
         }
         // Move piece locally for simple animation (combine dice values for now)
         if (moveToIndexRef.current) {
           // Example: use sum of dice for movement animation (adjust when legalMoves selection UI exists)
-          const steps = data.dice.reduce((a, b) => a + b, 0);
+          const steps = diceArr.reduce((a, b) => a + b, 0);
           moveToIndexRef.current(playerId, steps);
         }
         setIsRolling(false);
@@ -802,6 +817,18 @@ export function useGame() {
       if (diceResultRef.current) diceResultRef.current.innerText = "Roll error";
       setIsRolling(false);
     }
+  };
+
+  const startGame = () => {
+    console.log("[Socket] Starting game");
+    wsStartGame((err, data) => {
+      if (err) {
+        console.error("[Socket] Start game error", err);
+        alert("Failed to start game: " + err.message);
+        return;
+      }
+      console.log("[Socket] Game started", data);
+    });
   };
 
   const toggleDebug = () => {
@@ -835,8 +862,10 @@ export function useGame() {
     players,
     currentPlayer,
     playerId,
+    gameStarted,
     rollDice,
     toggleDebug,
     changeColor,
+    startGame,
   };
 }
