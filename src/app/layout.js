@@ -1,7 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "./ludo/context/ThemeContext";
-import ThemeToggle from "./ludo/components/ThemeToggle";
+import { ThemeProvider } from "./parcheesi/context/ThemeContext";
+import ThemeToggle from "./parcheesi/components/ThemeToggle";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Ludo Game - Multiplayer",
-  description: "Real-time multiplayer Ludo game",
+  title: "Parcheesi Game - Multiplayer",
+  description: "Real-time multiplayer Parcheesi game",
 };
 
 export default function RootLayout({ children }) {

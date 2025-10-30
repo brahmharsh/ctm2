@@ -1,6 +1,6 @@
 // Simple REST-oriented game store (migrated from src/lib/game/store.js)
 // Keeps REST demo endpoints functional independent of real-time roomService state.
-import { PLAYERS } from "@/app/ludo/constants";
+import { PLAYERS } from "@/app/parcheesi/constants";
 
 const initialState = () => ({
   players: [],

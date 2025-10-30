@@ -1,8 +1,8 @@
 // Socket.IO game-related handlers extracted from previous socket-server.js
 // Focus: translate transport events to core services.
 import { logger } from "../../../shared/logging/logger.js";
-import { roomService } from "../../../core/ludo/services/roomService.js";
-import { gameService } from "../../../core/ludo/services/gameService.js";
+import { roomService } from "../../../core/parcheesi/services/roomService.js";
+import { gameService } from "../../../core/parcheesi/services/gameService.js";
 
 export function registerGameHandlers(io, socket) {
   // game:join

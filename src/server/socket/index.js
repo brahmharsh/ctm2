@@ -1,7 +1,7 @@
 // Aggregate and register all Socket.IO handlers
 import { logger } from "../../shared/logging/logger.js";
 import { registerGameHandlers } from "./handlers/gameHandlers.js";
-import { roomService } from "../../core/ludo/services/roomService.js";
+import { roomService } from "../../core/parcheesi/services/roomService.js";
 
 export function registerSocketHandlers(io) {
   logger.info("Registering Socket.IO handlers");
