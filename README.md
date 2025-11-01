@@ -1,4 +1,4 @@
-This project is a multiplayer Parchís (Ludo-like) game built as a minimal monolith: Next.js UI + REST API routes + Socket.IO real-time channel on a single port. After refactor, the codebase separates concerns into core (business logic), server (runtime + transport handlers), client (browser adapters), and shared utilities.
+This project is a multiplayer Parchís (Parcheesi-like) game built as a minimal monolith: Next.js UI + REST API routes + Socket.IO real-time channel on a single port. After refactor, the codebase separates concerns into core (business logic), server (runtime + transport handlers), client (browser adapters), and shared utilities.
 
 ## Getting Started
 
@@ -7,9 +7,9 @@ This project is a multiplayer Parchís (Ludo-like) game built as a minimal monol
 ```bash
 npm install
 cat > .env.local <<'EOF'
-SOCKET_PORT=3001
+SOCKET_PORT=3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+NEXT_PUBLIC_SOCKET_URL=http://localhost:3000
 NODE_ENV=development
 EOF
 ```

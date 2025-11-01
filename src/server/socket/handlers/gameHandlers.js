@@ -115,7 +115,14 @@ export function registerGameHandlers(io, socket) {
           message: "Not in a game",
           event: "roll:dice",
         });
-      const result = gameService.rollDice(roomId, playerId);
+
+      // Generate two dice instead of one
+      const dice1 = Math.ceil(Math.random() * 6);
+      const dice2 = Math.ceil(Math.random() * 6);
+      // Update game logic to handle two dice in your service
+      const result = gameService.rollDice(roomId, playerId, [dice1, dice2]);
+      // Ensure gameService.rollDice can accept array of dice now
+
       if (!result.success)
         return socket.emit("game:error", {
           message: result.error,
@@ -124,11 +131,10 @@ export function registerGameHandlers(io, socket) {
 
       io.to(roomId).emit("roll:result", {
         playerId,
-        dice: result.dice,
+        dice: [dice1, dice2], // send both dice to all clients
         legalMoves: result.legalMoves,
       });
 
-      // Always emit turn:end and state update after dice roll (auto-advance)
       if (result.autoAdvanced) {
         io.to(roomId).emit("turn:end", {
           nextPlayer: result.nextPlayer,

@@ -1,0 +1,68 @@
+📂 ctm2/
+│   GAME_FLOW.md
+│   QUICK_TEST.md
+│   TESTING_GUIDE_WEBSOCKET.md
+├── apps/
+│   ├── backend/
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── move/
+│   generate-structure.js
+│   jsconfig.json
+│   middleware.js
+│   next.config.mjs
+│   package.json
+│   postcss.config.mjs
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── game/
+│   │   │   │   ├── [...action]/
+│   │   │   │   │   │   route.js
+│   │   │   │   ├── counter/
+│   │   │   │   │   │   route.js
+│   │   │   ├── health/
+│   │   │   │   │   route.js
+│   │   │   favicon.ico
+│   │   │   globals.css
+│   │   │   layout.js
+│   │   │   page.js
+│   │   ├── parcheesi/
+│   │   │   ├── components/
+│   │   │   │   │   Controls.js
+│   │   │   │   │   Game.js
+│   │   │   │   │   Lobby.js
+│   │   │   │   │   ThemeToggle.js
+│   │   │   │   │   WaitingRoom.js
+│   │   │   │   constants.js
+│   │   │   ├── context/
+│   │   │   │   │   ThemeContext.js
+│   │   │   │   drawing.js
+│   │   │   │   game-logic.js
+│   │   │   ├── hooks/
+│   │   │   │   │   useGame.js
+│   │   │   │   page.js
+│   │   │   │   project-export.md
+│   │   │   ├── services/
+│   │   │   │   │   api.js
+│   ├── client/
+│   │   ├── ludo/
+│   │   │   │   client.js
+│   ├── core/
+│   │   ├── parcheesi/
+│   │   │   │   index.js
+│   │   │   │   rules.js
+│   │   │   ├── services/
+│   │   │   │   │   gameService.js
+│   │   │   │   │   roomService.js
+│   │   │   │   │   simpleGameStore.js
+│   ├── server/
+│   │   ├── bootstrap/
+│   │   │   │   server.js
+│   │   ├── socket/
+│   │   │   ├── handlers/
+│   │   │   │   │   gameHandlers.js
+│   │   │   │   index.js
+│   ├── shared/
+│   │   ├── logging/
+│   │   │   │   logger.js

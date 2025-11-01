@@ -1,4 +1,4 @@
-# Ludo Game - User Flow Documentation
+# Parcheesi Game - User Flow Documentation
 
 ## 🎮 Complete Game Flow
 

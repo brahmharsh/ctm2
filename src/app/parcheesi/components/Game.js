@@ -20,6 +20,7 @@ export default function Game({ roomId, playerId }) {
     toggleDebug,
     changeColor,
     startGame,
+    animatedDice,
   } = useGame(roomId, playerId);
 
   // Debug logging to see what's happening
@@ -76,6 +77,7 @@ export default function Game({ roomId, playerId }) {
         className="bg-white dark:bg-gray-800 w-[100vmin] h-[100vmin] border-2 border-gray-300 dark:border-gray-600 shadow-2xl rounded-2xl"
       />
       <Controls
+        animatedDice={animatedDice}
         diceResultRef={diceResultRef}
         debug={debug}
         pieceColor={pieceColor}

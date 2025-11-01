@@ -22,8 +22,11 @@ export const gameService = {
     if (!isPlayerTurn(gameState, playerId))
       return { success: false, error: "Not your turn" };
 
-    const dice = rollDice();
-    // Attach dice result to state so applyMove can validate usage later.
+    // Generate two dice
+    const dice1 = rollDice();
+    const dice2 = rollDice();
+    const dice = [dice1, dice2];
+
     attachPendingDice(gameState, dice);
     const legalMoves = getLegalMoves(gameState, playerId, dice);
 
@@ -45,7 +48,7 @@ export const gameService = {
 
     return {
       success: true,
-      dice,
+      dice, // now an array of two dice
       legalMoves,
       autoAdvanced,
       gameState,
