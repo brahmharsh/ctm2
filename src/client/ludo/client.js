@@ -66,6 +66,7 @@ export function startGame(cb) {
 }
 export function rollDice(cb) {
   const s = getSocket();
+  console.log("[Frontend] Using socket ID:", s.id);
   if (!s) return console.error("[Socket] Not connected");
   s.emit("roll:dice");
   s.once("roll:result", (data) => {

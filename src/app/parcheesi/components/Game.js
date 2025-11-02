@@ -21,6 +21,7 @@ export default function Game({ roomId, playerId }) {
     changeColor,
     startGame,
     animatedDice,
+    legalMoves,
   } = useGame(roomId, playerId);
 
   // Debug logging to see what's happening
@@ -78,6 +79,7 @@ export default function Game({ roomId, playerId }) {
       />
       <Controls
         animatedDice={animatedDice}
+        legalMoves={legalMoves}
         diceResultRef={diceResultRef}
         debug={debug}
         pieceColor={pieceColor}

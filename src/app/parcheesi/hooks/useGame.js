@@ -1,6 +1,6 @@
 // /hooks/useGame.js
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGameState } from "./useGameState";
 import { useBoard } from "./useBoard";
 import { usePieces } from "./usePieces";
@@ -20,22 +20,45 @@ export function useGame(initialRoomId, initialPlayerId) {
   const { players, currentPlayer, gameStarted } =
     useGameState(initialRoomId, playerId, setPieceColor);
 
-  // ✅ Initialize the board (provides board refs)
-  const { canvasRef, pathRef, gameCellsRef, isResizingRef } =
-    useBoard(pieceColor, debug, imageLoaded, players, gameStarted, avatarImageRef);
+  // ✅ Dice system (rolls + move logic)
+  const { isRolling, rollDice, startGame, animatedDice, legalMoves } =
+    useDice(playerId, null, currentPlayer);
 
-  // ✅ Manage pieces (movement, positions)
-  const { pieces, moveToIndexRef, piecesRef, piecePositionsRef } =
-    usePieces(players, gameStarted, pathRef, gameCellsRef, isResizingRef);
+  // ✅ Manage pieces (positions + moves)
+  const {
+    pieces,
+    moveToIndexRef,
+    piecesRef,
+    piecePositionsRef,
+    selectedPieceId,
+    setSelectedPieceId,
+    clickEnabled,
+    setClickEnabled,
+    setPiecesLegalMoves,
+    handlePieceClick,
+  } = usePieces(players, gameStarted, null, null, null, legalMoves);
 
-  // ✅ Dice system — pass currentPlayer for turn check
-  const { isRolling, rollDice, startGame, animatedDice } =
-    useDice(playerId, moveToIndexRef, currentPlayer);
+  // ✅ Update usePieces whenever legalMoves changes
+  useEffect(() => {
+    if (legalMoves) setPiecesLegalMoves(legalMoves);
+  }, [legalMoves, setPiecesLegalMoves]);
 
-  console.log("[useGame] animatedDice from useDice:", animatedDice);
+  // ✅ Link moveToIndexRef to dice for movement
+  useDice(playerId, moveToIndexRef, currentPlayer);
 
+  // ✅ Initialize the board AFTER handlePieceClick exists
+  const { canvasRef, pathRef, gameCellsRef, isResizingRef } = useBoard(
+    pieceColor,
+    debug,
+    imageLoaded,
+    players,
+    gameStarted,
+    piecesRef,
+    avatarImageRef,
+    handlePieceClick
+  );
 
-  // ✅ Debug & color controls
+  // ✅ Debug controls
   const { toggleDebug, changeColor } = usePlayerControls(
     debug,
     setDebug,
@@ -46,16 +69,16 @@ export function useGame(initialRoomId, initialPlayerId) {
   );
 
   console.log("[useGame] State summary:", {
-  playerId,
-  currentPlayer,
-  isRolling,
-  animatedDice,
-});
-
+    playerId,
+    currentPlayer,
+    isRolling,
+    animatedDice,
+  });
 
   return {
     canvasRef,
     animatedDice,
+    legalMoves,
     debug,
     pieceColor,
     imageLoaded,
@@ -68,8 +91,81 @@ export function useGame(initialRoomId, initialPlayerId) {
     toggleDebug,
     changeColor,
     startGame,
+    handlePieceClick,
   };
 }
+
+
+// // /hooks/useGame.js
+// "use client";
+// import { useState } from "react";
+// import { useGameState } from "./useGameState";
+// import { useBoard } from "./useBoard";
+// import { usePieces } from "./usePieces";
+// import { useDice } from "./useDice";
+// import { usePlayerControls } from "./usePlayerControls";
+// import { useAvatar } from "./useAvatar";
+
+// export function useGame(initialRoomId, initialPlayerId) {
+//   const [debug, setDebug] = useState(false);
+//   const [pieceColor, setPieceColor] = useState("");
+//   const [playerId, setPlayerId] = useState(initialPlayerId || null);
+
+//   // ✅ Load avatar
+//   const { avatarImageRef, imageLoaded } = useAvatar();
+
+//   // ✅ Load players and game state
+//   const { players, currentPlayer, gameStarted } =
+//     useGameState(initialRoomId, playerId, setPieceColor);
+
+//   // ✅ Initialize the board (provides board refs)
+//   const { canvasRef, pathRef, gameCellsRef, isResizingRef } =
+//     useBoard(pieceColor, debug, imageLoaded, players, gameStarted, avatarImageRef);
+
+//   // ✅ Manage pieces (movement, positions)
+//   const { pieces, moveToIndexRef, piecesRef, piecePositionsRef } =
+//     usePieces(players, gameStarted, pathRef, gameCellsRef, isResizingRef);
+
+//   // ✅ Dice system — pass currentPlayer for turn check
+//   const { isRolling, rollDice, startGame, animatedDice, legalMoves } =
+//     useDice(playerId, moveToIndexRef, currentPlayer);
+
+//   // ✅ Debug & color controls
+//   const { toggleDebug, changeColor } = usePlayerControls(
+//     debug,
+//     setDebug,
+//     players,
+//     playerId,
+//     setPlayerId,
+//     setPieceColor
+//   );
+
+//   console.log("[useGame] State summary:", {
+//   playerId,
+//   currentPlayer,
+//   isRolling,
+//   animatedDice,
+// });
+
+
+//   return {
+//     canvasRef,
+//     animatedDice,
+//     legalMoves,
+//     debug,
+//     pieceColor,
+//     imageLoaded,
+//     isRolling,
+//     players,
+//     currentPlayer,
+//     playerId,
+//     gameStarted,
+//     rollDice,
+//     toggleDebug,
+//     changeColor,
+//     startGame,
+//   };
+// }
 
 // // /hooks/useGame.js
 // "use client";

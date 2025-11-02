@@ -21,7 +21,8 @@ export function usePieces(
   gameStarted,
   pathRef,
   gameCellsRef,
-  isResizingRef
+  isResizingRef,
+  initialLegalMoves = []
 ) {
   const [pieces, setPieces] = useState([]);
   const piecesRef = useRef([]);
@@ -29,6 +30,65 @@ export function usePieces(
   const initializedRef = useRef(false);
   const moveToIndexRef = useRef(null);
   const isMovingRef = useRef(false);
+  const [selectedPieceId, setSelectedPieceId] = useState(null);
+  const [clickEnabled, setClickEnabled] = useState(false);
+  const [legalMoves, setLegalMoves] = useState(initialLegalMoves);
+
+
+useEffect(() => {
+  if (!legalMoves || legalMoves.length === 0) {
+    setClickEnabled(false);
+    setSelectedPieceId(null);
+    return;
+  }
+  setClickEnabled(true);
+  if (!legalMoves.find((m) => m.tokenId === selectedPieceId)) {
+    setSelectedPieceId(legalMoves[0].tokenId);
+  }
+}, [legalMoves]);
+
+  const setPiecesLegalMoves = (moves) => setLegalMoves(moves);
+
+const handlePieceClick = useCallback(
+  (pieceId) => {
+    console.log("[usePieces] Piece clicked:", pieceId);
+
+    if (!clickEnabled) {
+      console.log("[usePieces] ❌ Click ignored — not your turn or dice not rolled yet");
+      return;
+    }
+
+    if (!legalMoves || legalMoves.length === 0) {
+      console.log("[usePieces] ⚠️ No legal moves available yet");
+      return;
+    }
+
+    console.log("LEGACY MOVES: ", legalMoves);
+
+    const pieceIndex = parseInt(pieceId.split("-").pop(), 10);
+    const tokenId = pieceId.replace(/-\d$/, `-t${pieceIndex + 1}`);
+
+
+    // Calculate total steps from all legalMoves for this piece
+    const pieceMoves = legalMoves.filter((m) => m.tokenId === tokenId);
+    if (pieceMoves.length === 0) {
+      console.log("[usePieces] 🚫 Clicked piece has no legal moves");
+      return;
+    }
+
+    const totalSteps = pieceMoves.reduce((sum, move) => sum + move.moveBy, 0);
+
+    console.log(`[usePieces] ✅ Moving piece ${pieceId} by total ${totalSteps} steps`);
+
+    // Trigger movement
+    moveToIndexRef.current?.(pieceId, totalSteps);
+
+    // Disable click until next turn / next roll
+    setClickEnabled(false);
+  },
+  [clickEnabled, legalMoves, moveToIndexRef]
+);
+
 
   // Keep ref updated
   useEffect(() => {
@@ -40,17 +100,37 @@ export function usePieces(
    * x0,y0 are top-left pixel of the corner box; cornerPixelSize is its size in px.
    * returns array of 4 { px, py } values
    */
-  function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
-    // padding from edge
-    const pad = Math.max(cellSize * 0.5, cornerPixelSize * 0.12);
-    // four positions: top-left, top-right, bottom-left, bottom-right
-    return [
-      { px: x0 + pad, py: y0 + pad },
-      { px: x0 + cornerPixelSize - pad, py: y0 + pad },
-      { px: x0 + pad, py: y0 + cornerPixelSize - pad },
-      { px: x0 + cornerPixelSize - pad, py: y0 + cornerPixelSize - pad },
-    ];
-  }
+  // function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
+  //   // padding from edge
+  //   const pad = Math.max(cellSize * 0.5, cornerPixelSize * 0.12);
+  //   // four positions: top-left, top-right, bottom-left, bottom-right
+  //   return [
+  //     { px: x0 + pad, py: y0 + pad },
+  //     { px: x0 + cornerPixelSize - pad, py: y0 + pad },
+  //     { px: x0 + pad, py: y0 + cornerPixelSize - pad },
+  //     { px: x0 + cornerPixelSize - pad, py: y0 + cornerPixelSize - pad },
+  //   ];
+  // }
+
+  /**
+ * Compute four corner piece positions around the avatar circle
+ */
+function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
+  // Compute center of the avatar circle
+  const centerX = x0 + cornerPixelSize / 2;
+  const centerY = y0 + cornerPixelSize / 2;
+
+  // Radius used for offsetting pieces from center
+  const circleRadius = 2 * cellSize;
+
+  // Four piece positions: top-left, top-right, bottom-left, bottom-right
+  return [
+    { px: centerX - circleRadius, py: centerY - circleRadius },
+    { px: centerX + circleRadius, py: centerY - circleRadius },
+    { px: centerX - circleRadius, py: centerY + circleRadius },
+    { px: centerX + circleRadius, py: centerY + circleRadius },
+  ];
+}
 
   // Initialize base pieces (4 per player) and place them visually inside corner home
   useEffect(() => {
@@ -498,5 +578,12 @@ export function usePieces(
     moveToIndexRef,
     piecePositionsRef,
     recalcPositions,
+    selectedPieceId,
+    setSelectedPieceId,
+    clickEnabled,
+    setClickEnabled,
+    legalMoves,
+    setPiecesLegalMoves,
+    handlePieceClick,
   };
 }

@@ -14,7 +14,7 @@ export const gameService = {
   startGame(roomId) {
     return roomService.startGame(roomId);
   },
-  rollDice(roomId, playerId) {
+  rollDice(roomId, playerId, diceArray) {
     const gameState = roomService.getGameState(roomId);
     if (!gameState || !gameState.gameStarted)
       return { success: false, error: "Game not started" };
@@ -23,20 +23,24 @@ export const gameService = {
       return { success: false, error: "Not your turn" };
 
     // Generate two dice
-    const dice1 = rollDice();
-    const dice2 = rollDice();
-    const dice = [dice1, dice2];
+    // const dice1 = rollDice();
+    // const dice2 = rollDice();
+    // const dice = [dice1, dice2];
 
-    attachPendingDice(gameState, dice);
-    const legalMoves = getLegalMoves(gameState, playerId, dice);
+    attachPendingDice(gameState, diceArray);
+
+    console.log("SERVICE DICESERVICE DICESERVICE DICESERVICE DICESERVICE DICESERVICE DICESERVICE DICE: ", diceArray);
+    const legalMoves = getLegalMoves(gameState, playerId, diceArray);
 
     let autoAdvanced = false;
     if (legalMoves.length === 0) {
       // No legal moves: advance turn and clear pending dice.
-      gameState.pendingDice = null;
-      advanceTurn(gameState);
+      // gameState.pendingDice = null;
+      // advanceTurn(gameState);
+      // roomService.updateGameState(roomId, gameState);
+      // autoAdvanced = true;
       roomService.updateGameState(roomId, gameState);
-      autoAdvanced = true;
+      autoAdvanced = false;
     } else {
       // For now, auto-advance turn after showing dice (simplified Ludo - no move selection yet)
       // In full implementation, player would select which piece to move from legalMoves
@@ -48,7 +52,7 @@ export const gameService = {
 
     return {
       success: true,
-      dice, // now an array of two dice
+      dice: diceArray, // now an array of two dice
       legalMoves,
       autoAdvanced,
       gameState,

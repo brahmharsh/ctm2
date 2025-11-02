@@ -105,52 +105,73 @@ export function registerGameHandlers(io, socket) {
     }
   });
 
-  // roll:dice
-  socket.on("roll:dice", () => {
-    try {
-      const roomId = roomService.getRoomIdBySocket(socket.id);
-      const playerId = roomService.getPlayerIdBySocket(socket.id);
-      if (!roomId || !playerId)
-        return socket.emit("game:error", {
-          message: "Not in a game",
-          event: "roll:dice",
-        });
+// roll:dice
+socket.on("roll:dice", () => {
+  try {
+    const roomId = roomService.getRoomIdBySocket(socket.id);
+    const playerId = roomService.getPlayerIdBySocket(socket.id);
 
-      // Generate two dice instead of one
-      const dice1 = Math.ceil(Math.random() * 6);
-      const dice2 = Math.ceil(Math.random() * 6);
-      // Update game logic to handle two dice in your service
-      const result = gameService.rollDice(roomId, playerId, [dice1, dice2]);
-      // Ensure gameService.rollDice can accept array of dice now
-
-      if (!result.success)
-        return socket.emit("game:error", {
-          message: result.error,
-          event: "roll:dice",
-        });
-
-      io.to(roomId).emit("roll:result", {
-        playerId,
-        dice: [dice1, dice2], // send both dice to all clients
-        legalMoves: result.legalMoves,
-      });
-
-      if (result.autoAdvanced) {
-        io.to(roomId).emit("turn:end", {
-          nextPlayer: result.nextPlayer,
-          reason:
-            result.legalMoves.length === 0 ? "no_legal_moves" : "auto_advance",
-        });
-        io.to(roomId).emit("update:state", { gameState: result.gameState });
-      }
-    } catch (error) {
-      logger.error("roll:dice handler error", { error: error.message });
-      socket.emit("game:error", {
-        message: "Internal server error",
+    if (!roomId || !playerId) {
+      return socket.emit("game:error", {
+        message: "Not in a game",
         event: "roll:dice",
       });
     }
-  });
+
+    // Generate dice
+    const dice1 = Math.ceil(Math.random() * 6);
+    const dice2 = Math.ceil(Math.random() * 6);
+    const diceArray = [dice1, dice2];
+
+
+    // Call game logic
+    const result = gameService.rollDice(roomId, playerId, diceArray);
+
+    // Debug log for full trace
+    console.log(
+      "[DEBUG][roll:dice]",
+      {
+        socketId: socket.id,
+        playerId,
+        roomId,
+        dice: [dice1, dice2],
+        legalMoves: result.legalMoves,
+        autoAdvanced: result.autoAdvanced,
+        nextPlayer: result.nextPlayer,
+      }
+    );
+
+    if (!result.success) {
+      return socket.emit("game:error", {
+        message: result.error,
+        event: "roll:dice",
+      });
+    }
+
+    // Emit dice roll to all clients in the room
+    io.to(roomId).emit("roll:result", {
+      playerId,
+      dice: [dice1, dice2], // exact dice sent to clients
+      legalMoves: result.legalMoves,
+    });
+
+    // Auto-advance turn if needed
+    if (result.autoAdvanced) {
+      io.to(roomId).emit("turn:end", {
+        nextPlayer: result.nextPlayer,
+        reason:
+          result.legalMoves.length === 0 ? "no_legal_moves" : "auto_advance",
+      });
+      io.to(roomId).emit("update:state", { gameState: result.gameState });
+    }
+  } catch (error) {
+    logger.error("roll:dice handler error", { error: error.message });
+    socket.emit("game:error", {
+      message: "Internal server error",
+      event: "roll:dice",
+    });
+  }
+});
 
   // move:token
   socket.on("move:token", (payload = {}) => {

@@ -52,14 +52,46 @@ export function isPlayerTurn(gameState, playerId) {
 }
 
 // Produce list of legal moves (token ids) for player given dice
-export function getLegalMoves(gameState, playerId, dice) {
+// export function getLegalMoves(gameState, playerId, dice) {
+//   const player = gameState.players.find((p) => p.id === playerId);
+//   if (!player) return [];
+//   return player.tokens
+//     .filter((t) => !t.finished)
+//     .filter((t) => t.position + dice <= TRACK_LENGTH) // must land <= end
+//     .map((t) => t.id);
+// }
+
+export function getLegalMoves(gameState, playerId, diceArray) {
   const player = gameState.players.find((p) => p.id === playerId);
   if (!player) return [];
-  return player.tokens
-    .filter((t) => !t.finished)
-    .filter((t) => t.position + dice <= TRACK_LENGTH) // must land <= end
-    .map((t) => t.id);
+
+  console.log("diceAdiceArraydiceArraydiceArrayrray", diceArray);
+
+  const diceValues = Array.isArray(diceArray)
+    ? diceArray.map((n) => parseInt(n, 10))
+    : [parseInt(diceArray, 10)];
+
+  const legalMoves = [];
+
+  console.log("diceValuesdiceValuesdiceValuesdiceValuesdiceValues", diceValues);
+
+  for (const die of diceValues) {
+    player.tokens
+      .filter((t) => !t.finished)
+      .filter((t) => t.position + die <= TRACK_LENGTH)
+      .forEach((t) => {
+        legalMoves.push({
+          tokenId: t.id,
+          moveBy: die,
+          newPosition: t.position + die,
+        });
+      });
+  }
+
+  return legalMoves;
 }
+
+
 
 // Apply the chosen move; ensures consistency with pending dice
 export function applyMove(gameState, playerId, tokenId, newPosition) {

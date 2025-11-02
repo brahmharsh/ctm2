@@ -81,13 +81,13 @@ Object.keys(PLAYER_POSITIONS).forEach((playerId) => {
 const cornerPositions = BoardComponents.drawCornerCircles(ctx, centerX, centerY, color, radius);
 
 cornerPositions.forEach((pos, index) => {
-  const piece = {
-    px: pos.x,
-    py: pos.y,
-    color: color,
-    id: `${playerId}_piece_${index}`,
-  };
-  drawPiece(ctx, piece, cellSize, piece.color, piece.color === pieceColor, animationFrame);
+  // const piece = {
+  //   px: pos.x,
+  //   py: pos.y,
+  //   color: color,
+  //   id: `${playerId}_piece_${index}`,
+  // };
+  // drawPiece(ctx, piece, cellSize, piece.color, piece.color === pieceColor, animationFrame);
 });
 
 
