@@ -69,7 +69,7 @@ function handleCanvasClick(e) {
   const clickX = e.clientX - rect.left;
   const clickY = e.clientY - rect.top;
 
-  console.log("[useBoard] Click coords:", clickX, clickY);
+  console.log("[useBoard] Click coords:", clickX, clickY, piecesRef);
 
   // Highlight click
   const ctx = canvasContextRef.current;

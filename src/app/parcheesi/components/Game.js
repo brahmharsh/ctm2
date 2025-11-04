@@ -22,6 +22,8 @@ export default function Game({ roomId, playerId }) {
     startGame,
     animatedDice,
     legalMoves,
+    pieces,
+    handlePieceClick,
   } = useGame(roomId, playerId);
 
   // Debug logging to see what's happening
@@ -44,6 +46,10 @@ export default function Game({ roomId, playerId }) {
     imageLoaded,
     currentPlayer,
   ]);
+
+  const myPieces = Array.isArray(pieces)
+    ? pieces.filter((p) => p.playerId === playerId)
+    : [];
 
   return (
     <div className="flex sm:flex-row flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-950 gap-4 p-4">
@@ -73,6 +79,20 @@ export default function Game({ roomId, playerId }) {
           </div>
         </div>
       )}
+      <div className="flex flex-col gap-2 w-40 shrink-0">
+        {myPieces.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => handlePieceClick(p.id)}
+            className="px-3 py-2 rounded-md border text-sm bg-white hover:bg-indigo-50 border-gray-300 text-gray-800 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700"
+          >
+            Select {p.id}
+          </button>
+        ))}
+        {myPieces.length === 0 && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">No pieces</div>
+        )}
+      </div>
       <canvas
         ref={canvasRef}
         className="bg-white dark:bg-gray-800 w-[100vmin] h-[100vmin] border-2 border-gray-300 dark:border-gray-600 shadow-2xl rounded-2xl"

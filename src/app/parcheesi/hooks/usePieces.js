@@ -29,10 +29,13 @@ export function usePieces(
   const piecePositionsRef = useRef({}); // stores logical positions (numbers or home identifiers)
   const initializedRef = useRef(false);
   const moveToIndexRef = useRef(null);
+  const moveTokenToRef = useRef(null);
+  const onLocalMoveRef = useRef(null);
   const isMovingRef = useRef(false);
   const [selectedPieceId, setSelectedPieceId] = useState(null);
   const [clickEnabled, setClickEnabled] = useState(false);
   const [legalMoves, setLegalMoves] = useState(initialLegalMoves);
+  const pendingServerToRef = useRef(null);
 
 
 useEffect(() => {
@@ -69,20 +72,37 @@ const handlePieceClick = useCallback(
     const tokenId = pieceId.replace(/-\d$/, `-t${pieceIndex + 1}`);
 
 
-    // Calculate total steps from all legalMoves for this piece
+    // Find legal moves for this piece (multiple when two dice)
     const pieceMoves = legalMoves.filter((m) => m.tokenId === tokenId);
     if (pieceMoves.length === 0) {
       console.log("[usePieces] 🚫 Clicked piece has no legal moves");
       return;
     }
 
-    const totalSteps = pieceMoves.reduce((sum, move) => sum + move.moveBy, 0);
+    // Choose which die to use for this move
+    const options = Array.from(new Set(pieceMoves.map((m) => m.moveBy)));
+    let chosenSteps = options[0];
+    if (options.length > 1) {
+      const input = window.prompt(
+        `Choose die for ${tokenId}: ${options.join(" or ")}`,
+        String(options[0])
+      );
+      const parsed = parseInt(input, 10);
+      if (options.includes(parsed)) {
+        chosenSteps = parsed;
+      }
+    }
 
-    console.log(`[usePieces] ✅ Moving piece ${pieceId} by total ${totalSteps} steps`);
+    const chosen = pieceMoves.find((m) => m.moveBy === chosenSteps) || pieceMoves[0];
+    const steps = chosen.moveBy;
+    // Store the server-expected absolute destination for this move (linear track newPosition)
+    pendingServerToRef.current = chosen.newPosition;
 
-    // Trigger movement
-    moveToIndexRef.current?.(pieceId, totalSteps);
+    console.log(`[usePieces] ✅ Moving piece ${pieceId} by ${steps} steps (tokenId ${tokenId})`);
 
+    // Trigger movement using only one die
+    moveToIndexRef.current?.(pieceId, steps);
+    console.log("MOVING PIECE: ", moveToIndexRef.current);
     // Disable click until next turn / next roll
     setClickEnabled(false);
   },
@@ -135,6 +155,8 @@ function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
   // Initialize base pieces (4 per player) and place them visually inside corner home
   useEffect(() => {
     if (!gameStarted || !players || players.length === 0) return;
+    // Prevent re-initializing pieces on rerolls or players identity changes
+    if (piecesRef.current && piecesRef.current.length > 0) return;
 
     // get canvas to compute pixel sizes; if not available we bail (positions will be set when canvas exists)
     const canvas = document.querySelector("canvas");
@@ -464,11 +486,30 @@ function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
     }
 
     function movePiece(playerId, steps) {
+      // The first argument is actually the piece id (e.g., "playerA-0").
+      // We derive base player id for color logic, but move using the piece id.
+      console.log("STARTING MOVE", playerId, steps, isMovingRef, players, currentGameCellRef);
       if (isMovingRef.current) return;
-      const player = players.find((p) => p.id === playerId);
+      const pieceId = playerId;
+      const basePlayerId = pieceId.includes("-")
+        ? pieceId.replace(/-\d$/, ``)
+        : pieceId;
+      const pieceIdxMatch = pieceId.match(/-(\d)$/);
+      const tokenId = pieceIdxMatch
+        ? `${basePlayerId}-t${Number(pieceIdxMatch[1]) + 1}`
+        : `${basePlayerId}-t1`;
+      console.log("After basePlayerId", basePlayerId);
+      const player = players.find((p) => p.id === basePlayerId);
       if (!player) return;
 
-      const currentCell = currentGameCellRef.current[playerId];
+      let currentCell = currentGameCellRef.current[pieceId];
+      if (currentCell == null) {
+        currentCell =
+          piecePositionsRef.current[pieceId] ??
+          piecesRef.current.find((p) => p.id === pieceId)?.position;
+        currentGameCellRef.current[pieceId] = currentCell;
+      }
+      console.log("MOVING PIECE: ", currentCell);
       let entryCell, homePathPrefix;
       switch (player.color) {
         case "yellow":
@@ -503,12 +544,14 @@ function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
         function moveHomeStep() {
           if (currentStep >= stepsToMove) {
             isMovingRef.current = false;
+            // Local move complete: notify server with linear destination from legal move
+            onLocalMoveRef.current?.({ tokenId, to: pendingServerToRef.current });
             return;
           }
           currentStep++;
           const nextHomeCell = homePathPrefix + (currentHomeNum + currentStep);
           moveToHomePath(
-            playerId,
+            pieceId,
             nextHomeCell,
             currentStep < stepsToMove ? moveHomeStep : null
           );
@@ -532,22 +575,25 @@ function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
         }
 
         let currentMove = 0;
+        let finalTo = null;
         function executeMove() {
           if (currentMove >= moveSequence.length) {
             isMovingRef.current = false;
+            if (finalTo != null) onLocalMoveRef.current?.({ tokenId, to: pendingServerToRef.current });
             return;
           }
           const nextCell = moveSequence[currentMove];
           currentMove++;
+          finalTo = nextCell;
           if (typeof nextCell === "string") {
             moveToHomePath(
-              playerId,
+              pieceId,
               nextCell,
               currentMove < moveSequence.length ? executeMove : null
             );
           } else {
             moveToGameCell(
-              playerId,
+              pieceId,
               nextCell,
               currentMove < moveSequence.length ? executeMove : null
             );
@@ -556,12 +602,33 @@ function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
         executeMove();
       } else {
         const targetCellNumber = ((currentCell + steps - 1) % 68) + 1;
-        moveToGameCell(playerId, targetCellNumber);
+        moveToGameCell(pieceId, targetCellNumber, () => {
+          isMovingRef.current = false;
+          onLocalMoveRef.current?.({ tokenId, to: pendingServerToRef.current });
+        });
       }
     }
 
     // Expose to parent
     moveToIndexRef.current = movePiece;
+    // Also expose direct token move for syncing opponent moves
+    moveTokenToRef.current = (tokenId, to) => {
+      // Convert server tokenId (e.g., "playerA-t1") to local pieceId (e.g., "playerA-0")
+      let pieceId = tokenId;
+      const match = /^(.+)-t(\d)$/.exec(tokenId || "");
+      if (match) {
+        const base = match[1];
+        const n = parseInt(match[2], 10);
+        const idx = Number.isFinite(n) ? Math.max(0, n - 1) : 0;
+        pieceId = `${base}-${idx}`;
+      }
+
+      if (typeof to === "string") {
+        moveToHomePath(pieceId, to);
+      } else {
+        moveToGameCell(pieceId, to);
+      }
+    };
   }, [
     gameStarted,
     players.length,
@@ -576,6 +643,8 @@ function computeCornerPiecePositions(x0, y0, cornerPixelSize, cellSize) {
     setPieces,
     piecesRef,
     moveToIndexRef,
+    moveTokenToRef,
+    onLocalMoveRef,
     piecePositionsRef,
     recalcPositions,
     selectedPieceId,

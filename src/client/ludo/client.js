@@ -27,6 +27,15 @@ export function initSocket() {
 
   return socket;
 }
+export function onMoveResult(cb) {
+  const s = getSocket();
+  if (!s) return () => {};
+  s.on("move:result", (d) => {
+    console.log("[Socket] Move result:", d);
+    cb && cb(d);
+  });
+  return () => s.off("move:result", cb);
+}
 
 export function getSocket() {
   return socket;
@@ -81,7 +90,9 @@ export function rollDice(cb) {
 export function moveToken(tokenId, newPosition, cb) {
   const s = getSocket();
   if (!s) return console.error("[Socket] Not connected");
+  console.log("[Frontend] Using socket ID:", tokenId, newPosition, cb);
   s.emit("move:token", { tokenId, newPosition });
+  console.log("[Frontend] Move token emitted");
   s.once("move:result", (data) => {
     console.log("[Socket] Token moved:", data);
     cb && cb(null, data);

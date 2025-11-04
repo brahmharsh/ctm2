@@ -175,10 +175,21 @@ socket.on("roll:dice", () => {
 
   // move:token
   socket.on("move:token", (payload = {}) => {
+    console.log("[DEBUG][move:token]", {
+      socketId: socket.id,
+      payload,
+    });
     try {
       const { tokenId, newPosition } = payload;
       const roomId = roomService.getRoomIdBySocket(socket.id);
       const playerId = roomService.getPlayerIdBySocket(socket.id);
+      console.log("[DEBUG][move:token]", {
+        socketId: socket.id,
+        playerId,
+        roomId,
+        tokenId,
+        newPosition,
+      });
       if (!roomId || !playerId)
         return socket.emit("game:error", {
           message: "Not in a game",
@@ -195,6 +206,16 @@ socket.on("roll:dice", () => {
           message: result.error,
           event: "move:token",
         });
+      console.log("[DEBUG][move:token]", {
+        socketId: socket.id,
+        playerId,
+        roomId,
+        tokenId,
+        newPosition,
+        legalMoves: result.legalMoves,
+        autoAdvanced: result.autoAdvanced,
+        nextPlayer: result.nextPlayer,
+      });
 
       io.to(roomId).emit("move:result", {
         playerId,
@@ -203,6 +224,8 @@ socket.on("roll:dice", () => {
         to: result.to,
         captured: result.captured,
         bonusMove: result.bonusMove,
+        advanced: result.advanced,
+        legalMoves: result.legalMoves,
       });
 
       if (result.gameWon) {
@@ -212,7 +235,9 @@ socket.on("roll:dice", () => {
         });
       } else {
         io.to(roomId).emit("update:state", { gameState: result.gameState });
-        io.to(roomId).emit("turn:end", { nextPlayer: result.nextPlayer });
+        if (result.advanced) {
+          io.to(roomId).emit("turn:end", { nextPlayer: result.nextPlayer });
+        }
       }
     } catch (error) {
       logger.error("move:token handler error", { error: error.message });

@@ -34,20 +34,14 @@ export const gameService = {
 
     let autoAdvanced = false;
     if (legalMoves.length === 0) {
-      // No legal moves: advance turn and clear pending dice.
-      // gameState.pendingDice = null;
-      // advanceTurn(gameState);
-      // roomService.updateGameState(roomId, gameState);
-      // autoAdvanced = true;
+      // No legal moves: keep turn with current player but update state so clients know there are no moves
       roomService.updateGameState(roomId, gameState);
       autoAdvanced = false;
     } else {
-      // For now, auto-advance turn after showing dice (simplified Ludo - no move selection yet)
-      // In full implementation, player would select which piece to move from legalMoves
-      gameState.pendingDice = null;
-      advanceTurn(gameState);
+      // Keep the turn with the roller so they can emit move:token; do not clear pendingDice here
+      // The moveToken handler will apply the move and advance the turn accordingly
       roomService.updateGameState(roomId, gameState);
-      autoAdvanced = true;
+      autoAdvanced = false;
     }
 
     return {
@@ -77,8 +71,19 @@ export const gameService = {
       gameWon = true;
     }
 
-    if (!moveResult.bonusMove && !gameWon) {
+    // Decide whether to advance turn now
+    const hasPendingDice = Array.isArray(gameState.pendingDice)
+      ? gameState.pendingDice.length > 0
+      : !!gameState.pendingDice;
+    let advanced = false;
+    let nextLegalMoves = [];
+
+    if (!moveResult.bonusMove && !gameWon && !hasPendingDice) {
       advanceTurn(gameState);
+      advanced = true;
+    } else if (hasPendingDice) {
+      // Compute next legal moves for remaining dice for the same player
+      nextLegalMoves = getLegalMoves(gameState, playerId, gameState.pendingDice);
     }
 
     roomService.updateGameState(roomId, gameState);
@@ -86,6 +91,8 @@ export const gameService = {
       success: true,
       ...moveResult,
       gameWon,
+      advanced,
+      legalMoves: nextLegalMoves,
       gameState,
       nextPlayer: gameState.players[gameState.currentPlayerIndex].id,
     };

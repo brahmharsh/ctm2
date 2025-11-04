@@ -1,12 +1,13 @@
 // /hooks/useGame.js
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useGameState } from "./useGameState";
 import { useBoard } from "./useBoard";
 import { usePieces } from "./usePieces";
 import { useDice } from "./useDice";
 import { usePlayerControls } from "./usePlayerControls";
 import { useAvatar } from "./useAvatar";
+import { onMoveResult, moveToken } from "@/client/ludo/client";
 
 export function useGame(initialRoomId, initialPlayerId) {
   const [debug, setDebug] = useState(false);
@@ -20,14 +21,36 @@ export function useGame(initialRoomId, initialPlayerId) {
   const { players, currentPlayer, gameStarted } =
     useGameState(initialRoomId, playerId, setPieceColor);
 
+  // ✅ Create a proxy click handler to break circular dependency between board and pieces
+  const handlePieceClickRef = useRef(() => {});
+  const handlePieceClickProxy = useCallback((id) => {
+    return handlePieceClickRef.current?.(id);
+  }, []);
+
+  // ✅ Initialize the board first to get shared refs
+  // Provide a stable ref container for board to read pieces from; we'll sync it after usePieces initializes
+  const piecesForBoardRef = useRef([]);
+  const { canvasRef, pathRef, gameCellsRef, isResizingRef } = useBoard(
+    pieceColor,
+    debug,
+    imageLoaded,
+    players,
+    gameStarted,
+    piecesForBoardRef,
+    avatarImageRef,
+    handlePieceClickProxy
+  );
+
   // ✅ Dice system (rolls + move logic)
   const { isRolling, rollDice, startGame, animatedDice, legalMoves } =
     useDice(playerId, null, currentPlayer);
 
-  // ✅ Manage pieces (positions + moves)
+  // ✅ Manage pieces (positions + moves) with real board refs
   const {
     pieces,
     moveToIndexRef,
+    moveTokenToRef,
+    onLocalMoveRef,
     piecesRef,
     piecePositionsRef,
     selectedPieceId,
@@ -36,27 +59,73 @@ export function useGame(initialRoomId, initialPlayerId) {
     setClickEnabled,
     setPiecesLegalMoves,
     handlePieceClick,
-  } = usePieces(players, gameStarted, null, null, null, legalMoves);
+  } = usePieces(players, gameStarted, pathRef, gameCellsRef, isResizingRef, legalMoves);
+
+  // ✅ After we have the real piecesRef, ensure board draws correct pieces by updating draw loop deps via re-render.
+  // No extra code needed; useBoard reads piecesRef.current dynamically on each frame.
+
+  // ✅ Sync the real handler into the proxy ref so canvas clicks call the latest logic
+  useEffect(() => {
+    handlePieceClickRef.current = handlePieceClick;
+  }, [handlePieceClick]);
+
+  // ✅ Keep board's pieces ref in sync with the authoritative piecesRef from usePieces
+  useEffect(() => {
+    piecesForBoardRef.current = piecesRef?.current || [];
+  }, [piecesRef, pieces]);
+
+  // ✅ When a local move animation completes, emit it to the server so others sync
+  useEffect(() => {
+    onLocalMoveRef.current = ({ tokenId, to }) => {
+      // Fire-and-forget; send absolute destination; server will validate against pending dice
+      moveToken(tokenId, to);
+    };
+    return () => {
+      onLocalMoveRef.current = null;
+    };
+  }, [onLocalMoveRef]);
+
+  // ✅ Subscribe to server move results
+  useEffect(() => {
+    const unsubscribe = onMoveResult((data) => {
+      const { playerId: mover, tokenId, from, to, legalMoves: nextLegal, advanced } = data || {};
+      if (!tokenId) return;
+
+      if (mover && mover === playerId) {
+        // Our own move just completed on server
+        if (!advanced && Array.isArray(nextLegal)) {
+          setPiecesLegalMoves(nextLegal);
+        } else {
+          setPiecesLegalMoves([]);
+        }
+        return;
+      }
+
+      // Opponent move: animate by step delta on our board path
+      const delta = (typeof to === 'number' && typeof from === 'number') ? (to - from) : 0;
+      if (delta !== 0) {
+        // Map server tokenId (playerId-tN) to local pieceId (playerId-(N-1))
+        let pieceId = tokenId;
+        const m = /^(.+)-t(\d)$/.exec(tokenId || "");
+        if (m) {
+          const base = m[1];
+          const idx = Math.max(0, parseInt(m[2], 10) - 1);
+          pieceId = `${base}-${idx}`;
+        }
+        moveToIndexRef.current?.(pieceId, delta);
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [playerId, moveTokenToRef, setPiecesLegalMoves]);
 
   // ✅ Update usePieces whenever legalMoves changes
   useEffect(() => {
     if (legalMoves) setPiecesLegalMoves(legalMoves);
   }, [legalMoves, setPiecesLegalMoves]);
 
-  // ✅ Link moveToIndexRef to dice for movement
-  useDice(playerId, moveToIndexRef, currentPlayer);
-
-  // ✅ Initialize the board AFTER handlePieceClick exists
-  const { canvasRef, pathRef, gameCellsRef, isResizingRef } = useBoard(
-    pieceColor,
-    debug,
-    imageLoaded,
-    players,
-    gameStarted,
-    piecesRef,
-    avatarImageRef,
-    handlePieceClick
-  );
+  // ✅ No second useDice call needed; movement is triggered via handlePieceClick -> usePieces.moveToIndexRef
 
   // ✅ Debug controls
   const { toggleDebug, changeColor } = usePlayerControls(
@@ -91,6 +160,7 @@ export function useGame(initialRoomId, initialPlayerId) {
     toggleDebug,
     changeColor,
     startGame,
+    pieces,
     handlePieceClick,
   };
 }

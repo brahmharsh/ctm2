@@ -105,13 +105,27 @@ export function applyMove(gameState, playerId, tokenId, newPosition) {
   if (token.finished)
     return { success: false, error: "Token already finished" };
 
-  const dice = gameState.pendingDice; // dice awaiting resolution
+  const dice = gameState.pendingDice; // dice awaiting resolution (number or array)
   if (dice == null) {
     return { success: false, error: "No pending dice roll" };
   }
-  const expectedPosition = token.position + dice;
-  if (newPosition !== expectedPosition) {
-    return { success: false, error: "Invalid position for dice" };
+  // Support single die or an array of dice from the server.
+  // If array, accept a move that matches ANY single die value and determine which die was used by delta.
+  let usedDie = 0;
+  if (Array.isArray(dice)) {
+    const deltas = dice.map((d) => parseInt(d, 10) || 0);
+    const delta = newPosition - token.position;
+    if (!deltas.includes(delta)) {
+      return { success: false, error: "Invalid position for dice, expected one of [" + deltas.join(",") + "] but got " + newPosition };
+    }
+    usedDie = delta;
+  } else {
+    const die = parseInt(dice, 10) || 0;
+    const expectedPosition = token.position + die;
+    if (newPosition !== expectedPosition) {
+      return { success: false, error: "Invalid position for dice, expected " + expectedPosition + " but got " + newPosition };
+    }
+    usedDie = die;
   }
   if (newPosition > TRACK_LENGTH) {
     return { success: false, error: "Move exceeds track" };
@@ -128,12 +142,19 @@ export function applyMove(gameState, playerId, tokenId, newPosition) {
   }
 
   // Basic bonus rule: rolling a 6 grants extra move (unless game won)
-  if (dice === 6 && !gameState.gameOver) {
+  if (usedDie === 6 && !gameState.gameOver) {
     bonusMove = true;
   }
 
-  // Clear pending dice after move consumed
-  gameState.pendingDice = null;
+  // Update pending dice after consuming the used die
+  if (Array.isArray(dice)) {
+    const arr = dice.map((d) => parseInt(d, 10) || 0);
+    const idx = arr.indexOf(usedDie);
+    if (idx > -1) arr.splice(idx, 1);
+    gameState.pendingDice = arr.length ? arr : null;
+  } else {
+    gameState.pendingDice = null;
+  }
   gameState.lastActionAt = Date.now();
 
   return {
