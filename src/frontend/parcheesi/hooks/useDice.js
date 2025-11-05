@@ -5,9 +5,8 @@ import {
   startGame as wsStartGame,
 } from '../services/websocketClient';
 
-export function useDice(playerId, currentPlayer) {
+export function useDice(playerId, currentPlayer, setAnimatedDice) {
   const [isRolling, setIsRolling] = useState(false);
-  const [animatedDice, setAnimatedDice] = useState([1, 1]);
   const [legalMoves, setLegalMoves] = useState([]); // store legal moves
 
   const rollDice = () => {
@@ -18,7 +17,7 @@ export function useDice(playerId, currentPlayer) {
     }
 
     setIsRolling(true);
-    setAnimatedDice([1, 1]); // placeholder while rolling
+    // Do NOT overwrite previous dice with placeholder; keep last settled values until backend result.
 
     wsRollDice((err, serverData) => {
       if (err) {
@@ -28,16 +27,32 @@ export function useDice(playerId, currentPlayer) {
       }
 
       const { dice, legalMoves: serverLegalMoves } = serverData || {};
-      console.log('[useDice] ✅ Final backend dice:', dice);
+      console.log(
+        '[useDice] ✅ Final backend dice:',
+        dice,
+        'Dice[0]:',
+        dice?.[0],
+        'Dice[1]:',
+        dice?.[1]
+      );
       console.log('[useDice] 🎯 Legal moves:', serverLegalMoves);
 
       // 🔹 Animate dice to backend results
-      setAnimatedDice(dice);
+      if (Array.isArray(dice) && dice.length === 2) {
+        console.log('[useDice] Setting animated dice to:', dice);
+        setAnimatedDice(dice);
+      } else {
+        console.error(
+          '[useDice] Invalid dice data (keeping previous faces):',
+          dice
+        );
+        // Do not overwrite existing animatedDice; preserve last valid faces
+      }
 
       // Store legal moves for token highlighting
       setLegalMoves(serverLegalMoves || []);
 
-      // stop rolling after animation completes
+      // stop rolling after animation completes (matches Dice3D duration)
       setTimeout(() => {
         setIsRolling(false);
       }, 1500);
@@ -50,5 +65,5 @@ export function useDice(playerId, currentPlayer) {
     });
   };
 
-  return { isRolling, rollDice, startGame, animatedDice, legalMoves };
+  return { isRolling, rollDice, startGame, legalMoves };
 }

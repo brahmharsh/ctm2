@@ -24,6 +24,7 @@ export default function Game({ roomId, playerId }) {
     legalMoves,
     onUseDie,
     selectedTokenId,
+    usedDice,
   } = useGame(roomId, playerId);
 
   // Debug logging to see what's happening
@@ -36,6 +37,8 @@ export default function Game({ roomId, playerId }) {
       playersCount: players.length,
       imageLoaded,
       currentPlayer: currentPlayer?.id,
+      animatedDice,
+      isRolling,
     });
   }, [
     roomId,
@@ -45,6 +48,8 @@ export default function Game({ roomId, playerId }) {
     players.length,
     imageLoaded,
     currentPlayer,
+    animatedDice,
+    isRolling,
   ]);
 
   return (
@@ -97,6 +102,7 @@ export default function Game({ roomId, playerId }) {
         legalMoves={legalMoves}
         onUseDie={onUseDie}
         selectedTokenId={selectedTokenId}
+        usedDice={usedDice}
       />
     </div>
   );

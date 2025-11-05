@@ -30,6 +30,7 @@ export const gameService = {
     }
 
     const dice = rollDice();
+    console.log('[gameService.rollDice] Generated dice:', dice);
     attachPendingDice(gameState, dice);
     const legalMoves = getLegalMoves(gameState, playerId);
 

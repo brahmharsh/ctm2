@@ -34,6 +34,8 @@ export function useGame(initialRoomId, initialPlayerId) {
   const [gameStarted, setGameStarted] = useState(false);
   const [pieces, setPieces] = useState([]);
   const [selectedTokenId, setSelectedTokenId] = useState(null);
+  const [pendingDice, setPendingDice] = useState([]); // Track if dice have been rolled this turn
+  const [usedDice, setUsedDice] = useState([]); // Track which dice have been used
   const avatarImageRef = useRef(null);
   const moveToIndexRef = useRef(null);
   const piecesRef = useRef(pieces);
@@ -50,9 +52,16 @@ export function useGame(initialRoomId, initialPlayerId) {
   const isResizingRef = useRef(false);
   const piecePositionsRef = useRef({}); // Store actual cell positions for each piece
 
-  const { isRolling, rollDice, startGame, animatedDice, legalMoves } = useDice(
+  const [animatedDice, setAnimatedDice] = useState([1, 1]);
+
+  useEffect(() => {
+    console.log('[useGame] animatedDice state updated:', animatedDice);
+  }, [animatedDice]);
+
+  const { isRolling, rollDice, startGame, legalMoves } = useDice(
     playerId,
-    currentPlayer
+    currentPlayer,
+    setAnimatedDice
   );
 
   // When legal moves are available, mark the corresponding tokens as selectable
@@ -169,6 +178,10 @@ export function useGame(initialRoomId, initialPlayerId) {
           }
           setGameStarted(gs.gameStarted);
 
+          // Update dice state from server
+          setPendingDice(gs.pendingDice || []);
+          setUsedDice(gs.usedDice || []);
+
           // DEBUG: Check if dice are being set
           if (gs.pendingDice && gs.pendingDice.length > 0) {
             console.log(
@@ -207,13 +220,17 @@ export function useGame(initialRoomId, initialPlayerId) {
 
         // Subscribe to turn end updates
         unsubscribeTurn = onTurnEnd((data) => {
-          // console.log('[useGame] Turn end:', data);
+          console.log('[useGame] Turn end:', data);
           if (data?.nextPlayer) {
             setCurrentPlayer((prev) => {
               return players.find((p) => p.id === data.nextPlayer) || prev;
             });
           }
+          // Clear selection and dice state when turn ends
           setSelectedTokenId(null);
+          setPendingDice([]);
+          setUsedDice([]);
+          // Do NOT reset animatedDice here; keep last rolled faces visible for debugging
         });
 
         // Request current game state immediately after subscribing
@@ -238,44 +255,13 @@ export function useGame(initialRoomId, initialPlayerId) {
   }, [playerId]);
 
   // Map of home path indices for each color (first player request focuses on yellow)
-  // Corner-local slot layout (2x2) not relying on path indices
-  // Each color gets four relative slot offsets inside its corner square.
-  const HOME_SLOTS = {
-    yellow: [
-      // bottom-right corner
-      { ox: 0.2, oy: 0.2 },
-      { ox: 0.7, oy: 0.2 },
-      { ox: 0.2, oy: 0.7 },
-      { ox: 0.7, oy: 0.7 },
-    ],
-    blue: [
-      // top-right
-      { ox: 0.2, oy: 0.2 },
-      { ox: 0.7, oy: 0.2 },
-      { ox: 0.2, oy: 0.7 },
-      { ox: 0.7, oy: 0.7 },
-    ],
-    red: [
-      // top-left
-      { ox: 0.2, oy: 0.2 },
-      { ox: 0.7, oy: 0.2 },
-      { ox: 0.2, oy: 0.7 },
-      { ox: 0.7, oy: 0.7 },
-    ],
-    green: [
-      // bottom-left
-      { ox: 0.2, oy: 0.2 },
-      { ox: 0.7, oy: 0.2 },
-      { ox: 0.2, oy: 0.7 },
-      { ox: 0.7, oy: 0.7 },
-    ],
-  };
+  // Token positions in home base are defined in constants.js HOME_POSITIONS
 
   // Initialize token pieces from backend player tokens
   useEffect(() => {
     if (!gameStarted || players.length === 0) return;
 
-    // console.log('[useGame] 🎮 Initializing pieces from players:', players);
+    console.log('[useGame] 🎮 Updating pieces from players:', players);
 
     const allPieces = [];
     players.forEach((player) => {
@@ -284,14 +270,19 @@ export function useGame(initialRoomId, initialPlayerId) {
         // First pass: identify tokens still in home for this player
         const homeTokens = player.tokens.filter((t) => t.position === 'home');
 
-        // console.log(`[useGame] Player ${player.id} (${color}):`, {
-        //   totalTokens: player.tokens.length,
-        //   homeTokens: homeTokens.length,
-        //   tokens: player.tokens,
-        // });
+        console.log(`[useGame] Player ${player.id} (${color}):`, {
+          totalTokens: player.tokens.length,
+          homeTokens: homeTokens.length,
+          tokens: player.tokens.map((t) => ({
+            id: t.id,
+            position: t.position,
+            finished: t.finished,
+          })),
+        });
 
         player.tokens.forEach((token, idx) => {
           const inHome = token.position === 'home';
+          const isFinished = token.finished || false;
 
           // For home tokens, reassign slot based on remaining home tokens
           // This creates the 4→3→2→1 visual effect as tokens leave
@@ -300,15 +291,19 @@ export function useGame(initialRoomId, initialPlayerId) {
             displaySlotIndex = homeTokens.findIndex((t) => t.id === token.id);
           }
 
+          console.log(
+            `[useGame] Token ${token.id}: position=${token.position}, inHome=${inHome}, slotIndex=${displaySlotIndex}`
+          );
+
           allPieces.push({
             id: token.id,
             tokenId: token.id,
             playerId: player.id,
             color,
-            position: inHome ? null : token.position,
+            position: token.position, // Keep the actual position (could be 'home', a number, or 'finished')
             inHome,
             slotIndex: displaySlotIndex,
-            finished: token.finished,
+            finished: isFinished,
             x: 0,
             y: 0,
             px: 0,
@@ -318,9 +313,37 @@ export function useGame(initialRoomId, initialPlayerId) {
       }
     });
 
-    // console.log('[useGame] ✓ Initialized pieces:', allPieces);
+    console.log(
+      '[useGame] ✓ Setting pieces:',
+      allPieces.map((p) => ({
+        id: p.id,
+        position: p.position,
+        inHome: p.inHome,
+      }))
+    );
+    // Update ref synchronously BEFORE triggering any recalculation to avoid 0-length race
+    piecesRef.current = allPieces;
     setPieces(allPieces);
     initializedRef.current = false;
+    // Trigger a position recalculation on next frame if board already initialized
+    if (boardInitializedRef.current) {
+      requestAnimationFrame(() => {
+        try {
+          // Defensive: ensure ref still populated
+          if (piecesRef.current && piecesRef.current.length) {
+            // Call recalc through stored callback if exists
+            if (typeof drawBoardRef.current === 'function') {
+              // drawBoard will consume updated positions after recalc occurs in resize or animation loop
+            }
+          }
+        } catch (err) {
+          console.error(
+            '[useGame] Error scheduling post-setPieces recalculation',
+            err
+          );
+        }
+      });
+    }
   }, [players, gameStarted]);
 
   useEffect(() => {
@@ -408,46 +431,117 @@ export function useGame(initialRoomId, initialPlayerId) {
   }, [pieceColor, debug, imageLoaded, players, selectedTokenId]);
 
   // Function to recalculate piece positions after resize
+  // Compute home slot pixel position inside the avatar corner using the same geometry
+  // as BoardComponents.drawCornerCircles (see drawing.js). Keeps tokens centered in circles.
+  const getHomeSlotPosition = (color, slotIndex, cellSize) => {
+    const pos = PLAYER_POSITIONS[color];
+    if (!pos) return null;
+    const cornerPixelSize = CORNER_SIZE * cellSize;
+    const baseX = pos.x * cellSize;
+    const baseY = pos.y * cellSize;
+    const centerX = baseX + cornerPixelSize / 2;
+    const centerY = baseY + cornerPixelSize / 2;
+    const circleRadius = 2 * cellSize;
+    const d = circleRadius * 1; // distance from center used in drawCornerCircles
+    const mappings = [
+      { x: centerX - d, y: centerY - d }, // top-left
+      { x: centerX + d, y: centerY - d }, // top-right
+      { x: centerX - d, y: centerY + d }, // bottom-left
+      { x: centerX + d, y: centerY + d }, // bottom-right
+    ];
+    return mappings[slotIndex] || mappings[0];
+  };
+
+  // Recalculate piece pixel positions (safe against ref race)
   const recalculatePiecePositions = useCallback(() => {
-    if (!gameStarted || !pieceColor || pieces.length === 0) return;
+    // Fallback to pieces state if ref not yet updated (race protection)
+    let currentPieces = piecesRef.current;
+    if ((!currentPieces || currentPieces.length === 0) && pieces.length > 0) {
+      console.warn(
+        '[recalculatePiecePositions] Using state fallback; ref empty but state has pieces'
+      );
+      currentPieces = pieces;
+    }
+
+    if (!gameStarted || !pieceColor) {
+      console.log(
+        '[recalculatePiecePositions] Skipping (not started or no color)',
+        {
+          gameStarted,
+          pieceColor,
+          piecesCount: currentPieces.length,
+        }
+      );
+      return;
+    }
 
     const canvas = canvasRef.current;
     const path = pathRef.current;
     const gameCells = gameCellsRef.current;
 
-    if (!path || !gameCells) return;
+    if (!canvas || !path || !gameCells) {
+      console.log('[recalculatePiecePositions] Missing refs:', {
+        canvas: !!canvas,
+        path: !!path,
+        gameCells: !!gameCells,
+      });
+      return;
+    }
 
     const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
 
+    console.log(
+      '[recalculatePiecePositions] Recalculating for',
+      currentPieces.length,
+      'pieces'
+    );
+
     // Update positions for all pieces
-    const updatedPieces = pieces.map((piece) => {
-      // Corner-local placement for home tokens
+    const updatedPieces = currentPieces.map((piece) => {
+      // Home tokens: place inside corner circles
       if (piece.inHome) {
-        const pos = PLAYER_POSITIONS[piece.color];
-        if (pos) {
-          const slots = HOME_SLOTS[piece.color] || [];
-          const slot = slots[piece.slotIndex] || slots[0];
-          const cornerPixelSize = CORNER_SIZE * cellSize;
-          const baseX = pos.x * cellSize;
-          const baseY = pos.y * cellSize;
-          const px = baseX + cornerPixelSize * slot.ox;
-          const py = baseY + cornerPixelSize * slot.oy;
+        const slotPos = getHomeSlotPosition(
+          piece.color,
+          piece.slotIndex,
+          cellSize
+        );
+        if (slotPos) {
+          const { x: px, y: py } = slotPos;
+          console.log(
+            `[recalculatePiecePositions] Home token ${piece.id}: px=${px}, py=${py}`
+          );
           return { ...piece, px, py };
         }
+        console.log(
+          `[recalculatePiecePositions] Missing slot position for ${piece.id}`
+        );
         return piece;
       }
 
       // Piece out of home: use board cell mapping (existing logic)
       const currentCell = piecePositionsRef.current[piece.id] || piece.position;
       const targetIndices = gameCells[currentCell];
-      if (!targetIndices) return piece;
+      if (!targetIndices) {
+        console.log(
+          `[recalculatePiecePositions] No target indices for piece ${piece.id} at position ${currentCell}`
+        );
+        return piece;
+      }
       const firstCell = path[targetIndices[0]];
       const secondCell = path[targetIndices[1]];
-      if (!firstCell || !secondCell) return piece;
+      if (!firstCell || !secondCell) {
+        console.log(
+          `[recalculatePiecePositions] Missing path cells for piece ${piece.id}`
+        );
+        return piece;
+      }
       let px =
         (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
       let py =
         (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
+      console.log(
+        `[recalculatePiecePositions] Board token ${piece.id}: position=${currentCell}, px=${px}, py=${py}`
+      );
       return {
         ...piece,
         x: firstCell.x,
@@ -459,9 +553,23 @@ export function useGame(initialRoomId, initialPlayerId) {
     });
 
     // Update both the ref and state
+    console.log(
+      '[recalculatePiecePositions] Updated pieces:',
+      updatedPieces.map((p) => ({
+        id: p.id,
+        px: p.px,
+        py: p.py,
+        inHome: p.inHome,
+      }))
+    );
+    // Avoid overwriting with empty array if we had pieces previously
+    if (updatedPieces.length === 0 && piecesRef.current.length > 0) {
+      console.warn('[recalculatePiecePositions] Skipping empty overwrite');
+      return;
+    }
     piecesRef.current = updatedPieces;
     setPieces(updatedPieces);
-  }, [gameStarted, pieceColor]); // Removed pieces from dependencies
+  }, [gameStarted, pieceColor]); // stable deps
 
   // Separate effect for canvas setup
   useEffect(() => {
@@ -527,6 +635,24 @@ export function useGame(initialRoomId, initialPlayerId) {
     drawBoardRef.current = createDrawBoardFunction();
   }, [createDrawBoardFunction]);
 
+  // Recalculate positions when pieces logical state changes (not on every render)
+  useEffect(() => {
+    if (
+      pieces.length > 0 &&
+      pathRef.current &&
+      gameCellsRef.current &&
+      canvasRef.current
+    ) {
+      console.log(
+        '[useGame] Triggering position recalculation for',
+        pieces.length,
+        'pieces'
+      );
+      // Directly call without setTimeout since we fixed the infinite loop
+      recalculatePiecePositions();
+    }
+  }, [pieces.length, recalculatePiecePositions]); // Only when piece count changes
+
   // Effect for initializing piece positions
   useEffect(() => {
     if (
@@ -550,18 +676,15 @@ export function useGame(initialRoomId, initialPlayerId) {
     const updatedPieces = pieces.map((piece) => {
       // Handle tokens in home base
       if (piece.inHome) {
-        const pos = PLAYER_POSITIONS[piece.color];
-        if (pos) {
-          const slots = HOME_SLOTS[piece.color] || [];
-          const slot = slots[piece.slotIndex] || slots[0];
-          const cornerPixelSize = CORNER_SIZE * cellSize;
-          const baseX = pos.x * cellSize;
-          const baseY = pos.y * cellSize;
-          const px = baseX + cornerPixelSize * slot.ox;
-          const py = baseY + cornerPixelSize * slot.oy;
-          return { ...piece, px, py };
+        const slotPos = getHomeSlotPosition(
+          piece.color,
+          piece.slotIndex,
+          cellSize
+        );
+        if (slotPos) {
+          return { ...piece, px: slotPos.x, py: slotPos.y };
         }
-        return piece; // fallback if corner not found
+        return piece; // fallback if position not found
       }
 
       // Handle tokens on the board
@@ -946,21 +1069,70 @@ export function useGame(initialRoomId, initialPlayerId) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const handleClick = (e) => {
-      if (!gameStarted || !currentPlayer || currentPlayer.id !== playerId)
+      if (!gameStarted || !currentPlayer || currentPlayer.id !== playerId) {
+        console.log(
+          '[handleClick] Cannot select token: game not started or not your turn'
+        );
         return;
+      }
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / window.devicePixelRatio / rect.width;
       const scaleY = canvas.height / window.devicePixelRatio / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+      let x = (e.clientX - rect.left) * scaleX;
+      let y = (e.clientY - rect.top) * scaleY;
+
+      // Apply inverse rotation to click coordinates to match piece coordinate space
+      const size = canvas.width / window.devicePixelRatio;
+      const centerX = size / 2;
+      const centerY = size / 2;
+
+      // Determine rotation based on current player color
+      let rotation = 0;
+      switch (pieceColor) {
+        case 'red':
+          rotation = Math.PI; // 180°
+          break;
+        case 'blue':
+          rotation = Math.PI / 2; // 90°
+          break;
+        case 'green':
+          rotation = -Math.PI / 2; // -90°
+          break;
+        // yellow (default) is 0
+      }
+
+      // Apply inverse rotation transform
+      if (rotation !== 0) {
+        // Translate to origin
+        const tx = x - centerX;
+        const ty = y - centerY;
+        // Rotate by negative angle (inverse rotation)
+        const cos = Math.cos(-rotation);
+        const sin = Math.sin(-rotation);
+        x = tx * cos - ty * sin + centerX;
+        y = tx * sin + ty * cos + centerY;
+      }
+
       const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
       const pickRadius = cellSize / 2;
+
+      console.log('[handleClick] Click at:', {
+        x,
+        y,
+        pickRadius,
+        piecesCount: piecesRef.current.length,
+      });
+
       let found = null;
       piecesRef.current.forEach((p) => {
         if (p.playerId !== playerId) return;
         const dx = p.px - x;
         const dy = p.py - y;
-        if (Math.sqrt(dx * dx + dy * dy) <= pickRadius) {
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        console.log(
+          `[handleClick] Checking piece ${p.id}: px=${p.px}, py=${p.py}, distance=${distance}, selectable=${p.selectable}`
+        );
+        if (distance <= pickRadius) {
           found = p;
         }
       });
@@ -969,6 +1141,7 @@ export function useGame(initialRoomId, initialPlayerId) {
         console.log('[useGame] Selected token', found.tokenId);
       } else {
         setSelectedTokenId(null);
+        console.log('[useGame] No token found at click position');
       }
     };
     canvas.addEventListener('click', handleClick);
@@ -977,72 +1150,152 @@ export function useGame(initialRoomId, initialPlayerId) {
 
   // Apply a specific die to selected token
   const useDieForSelectedToken = (tokenId, diceIndex) => {
-    if (tokenId == null) {
-      console.log('[useGame] No token selected, cannot use die.');
+    console.log('[useDieForSelectedToken] Called with:', {
+      tokenId,
+      diceIndex,
+      selectedTokenId,
+      isRolling,
+      gameStarted,
+    });
+
+    if (isRolling || !gameStarted) {
+      console.log(
+        '[useDieForSelectedToken] Cannot use die: isRolling or game not started'
+      );
       return;
     }
 
+    if (!tokenId) {
+      console.log('[useDieForSelectedToken] No token selected');
+      return;
+    }
+
+    const playerColor = pieceColor;
+    const player = players.find((p) => p.color === playerColor);
+    if (!player) {
+      console.log('[useDieForSelectedToken] Player not found');
+      return;
+    }
+
+    // Check if the move is legal
     const move = legalMoves.find(
       (m) => m.tokenId === tokenId && m.diceIndex === diceIndex
     );
 
-    if (move) {
-      console.log('[useGame] Executing move:', move);
-      wsMoveToken(move.tokenId, move.diceIndex, (err, data) => {
-        if (err) {
-          console.error('[useGame] Move error', err);
-          return;
-        }
-        // server will emit updated state, and we clear selection
-        setSelectedTokenId(null);
-      });
-    } else {
-      console.warn(
-        '[useGame] No legal move found for token',
-        tokenId,
-        'with dice index',
-        diceIndex
+    console.log('[useDieForSelectedToken] Looking for legal move:', {
+      tokenId,
+      diceIndex,
+      move,
+      allLegalMoves: legalMoves,
+    });
+
+    if (!move) {
+      console.log(
+        '[useDieForSelectedToken] No legal move found for this token and dice'
       );
+      return;
     }
+
+    console.log('[useDieForSelectedToken] Executing move:', move);
+
+    // Perform the move via WebSocket
+    wsMoveToken(tokenId, diceIndex, (err, result) => {
+      if (err) {
+        console.error('[useDieForSelectedToken] Move failed:', err);
+      } else {
+        console.log('[useDieForSelectedToken] Move successful:', result);
+        setSelectedTokenId(null);
+      }
+    });
   };
 
+  // ROLL the dice (public function)
+  const rollDicePublic = () => {
+    if (isRolling || !gameStarted) return;
+    // Prevent rolling if dice are already pending (already rolled this turn)
+    if (pendingDice && pendingDice.length > 0) {
+      console.log('[useGame] Cannot roll - dice already rolled this turn');
+      return;
+    }
+    rollDice();
+  };
+
+  // Toggle debug mode
   const toggleDebug = () => {
-    setDebug(!debug);
+    setDebug((prev) => !prev);
   };
 
+  // Placeholder for color change (not implemented)
   const changeColor = () => {
-    // In multiplayer mode, color is determined by player ID
-    // This function now switches to the next player in sequence
-    if (players.length <= 1) return;
-
-    // Find current player index
-    const currentPlayerIndex = players.findIndex((p) => p.id === playerId);
-
-    // Calculate next player index (wrap around if at the end)
-    const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
-    const nextPlayer = players[nextPlayerIndex];
-
-    // Switch to the next player
-    setPlayerId(nextPlayer.id);
-    setPieceColor(nextPlayer.color);
+    console.log('[useGame] Color change not implemented');
   };
+
+  // Listen for move:result to apply chainedMove locally
+  useEffect(() => {
+    const unsubscribe = onMoveResult((data) => {
+      console.log('[useGame] Move result received:', data);
+      setSelectedTokenId(null);
+      if (data?.chainedMove) {
+        console.log(
+          '[useGame] Applying chained move locally:',
+          data.chainedMove
+        );
+        setPieces((prev) =>
+          prev.map((p) =>
+            p.tokenId === data.tokenId
+              ? { ...p, position: data.chainedMove.secondNewPosition }
+              : p
+          )
+        );
+      }
+      if (Array.isArray(data?.legalMoves)) {
+        console.log('[useGame] Updating legalMoves from move:result payload');
+        const selectableTokenIds = new Set(
+          data.legalMoves.map((m) => m.tokenId)
+        );
+        setPieces((prevPieces) =>
+          prevPieces.map((p) => ({
+            ...p,
+            selectable: selectableTokenIds.has(p.tokenId),
+          }))
+        );
+      }
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   return {
     canvasRef,
-    diceResultRef,
-    debug,
-    pieceColor,
-    imageLoaded,
-    isRolling,
     players,
     currentPlayer,
     playerId,
     gameStarted,
-    rollDice,
+    pieces,
+    selectedTokenId,
+    debug,
+    setDebug,
+    pieceColor,
+    imageLoaded,
+    animatedDice,
+    isRolling,
+    legalMoves,
+    usedDice,
+    rollDice: rollDicePublic,
+    startGame,
     toggleDebug,
     changeColor,
-    startGame,
+    setPlayerId,
+    setPieces,
+    setSelectedTokenId,
+    setCurrentPlayer,
+    setGameStarted,
+    requestGameState,
     onUseDie: useDieForSelectedToken,
-    selectedTokenId,
+    // WebSocket event handlers (for testing)
+    onStateUpdate,
+    onTurnEnd,
+    onRoomUpdate,
+    onMoveResult,
+    onGameStarted,
   };
 }

@@ -68,7 +68,7 @@ export function rollDice(cb) {
   if (!s) return console.error('[Socket] Not connected');
   s.emit('roll:dice');
   s.once('roll:result', (data) => {
-    console.log('[Socket] Dice rolled:', data);
+    console.log('[Socket] Dice rolled:', data, 'data.dice:', data?.dice);
     cb && cb(null, data);
   });
   s.once('game:error', (error) => {

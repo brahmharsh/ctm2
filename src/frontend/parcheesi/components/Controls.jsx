@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Dice3D from './Dice3D';
+import FlatDice from './FlatDice';
 
 export default function Controls({
   debug,
@@ -21,10 +22,24 @@ export default function Controls({
   legalMoves,
   onUseDie,
   selectedTokenId,
+  usedDice = [],
 }) {
+  console.log('[Controls] Props received:', {
+    isRolling,
+    animatedDice,
+    legalMoves: legalMoves?.length,
+  });
+
   const currentPlayerIndex = players?.findIndex((p) => p.id === playerId) ?? -1;
   const playerNumber = currentPlayerIndex >= 0 ? currentPlayerIndex + 1 : 0;
   const isMyTurn = currentPlayer && currentPlayer.id === playerId;
+
+  // Check if dice have been rolled (not the initial [1,1] state)
+  const diceRolled =
+    animatedDice &&
+    Array.isArray(animatedDice) &&
+    animatedDice.length === 2 &&
+    !(animatedDice[0] === 1 && animatedDice[1] === 1);
 
   return (
     <div className="flex flex-col w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 space-y-4">
@@ -98,6 +113,13 @@ export default function Controls({
             isRolling={isRolling}
             values={animatedDice}
             isMyTurn={isMyTurn}
+            usedDice={usedDice}
+          />
+          <FlatDice
+            values={animatedDice}
+            used={usedDice}
+            pending={[]}
+            debug={debug}
           />
         </div>
         {legalMoves && legalMoves.length > 0 && (
@@ -109,9 +131,12 @@ export default function Controls({
             </p>
             <div className="flex justify-center space-x-2">
               {animatedDice.map((die, index) => {
-                const isUsed = !legalMoves.some(
-                  (move) => move.diceIndex === index
-                );
+                // A die is considered used if no legal moves reference it
+                const isUsed =
+                  usedDice[index] ||
+                  !legalMoves.some((move) => move.diceIndex === index);
+                // Hide used dice instead of showing strikethrough if both dice consumed
+                if (isUsed && legalMoves.length === 0) return null;
                 return (
                   <button
                     key={index}
@@ -122,6 +147,7 @@ export default function Controls({
                         ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 line-through'
                         : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
+                    title={isUsed ? 'Die already used' : 'Use this die'}
                   >
                     {die}
                   </button>
@@ -148,12 +174,14 @@ export default function Controls({
             isRolling ||
             !isMyTurn ||
             !gameStarted ||
+            diceRolled ||
             (legalMoves && legalMoves.length > 0)
           }
           className={`w-full px-6 py-3 rounded-xl shadow-md font-semibold transition-all transform ${
             isRolling ||
             !isMyTurn ||
             !gameStarted ||
+            diceRolled ||
             (legalMoves && legalMoves.length > 0)
               ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
               : 'bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:scale-[1.02]'
@@ -162,7 +190,9 @@ export default function Controls({
           {isRolling
             ? '🎲 Rolling...'
             : !isMyTurn
-            ? `⌛ ${currentPlayer?.id}'s Turn`
+            ? `⌛ ${currentPlayer?.color || currentPlayer?.id}'s Turn`
+            : diceRolled
+            ? 'Waiting for next turn...'
             : legalMoves && legalMoves.length > 0
             ? 'Use dice first'
             : '🎲 Roll Dice'}

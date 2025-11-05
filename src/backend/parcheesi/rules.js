@@ -160,13 +160,49 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
     player.finishedTokens += 1;
   }
 
-  // Bonus move if rolled a 6
+  // Bonus move if rolled a 6 (may be suppressed if chained consumed remaining die and both dice now used)
   if (diceValue === 6 && !gameState.gameOver) {
     bonusMove = true;
   }
 
-  // Check if both dice are used
+  // Auto-chain second die when entering from home with a 6 and other die is NOT 6.
+  let chainedMove = null;
+  if (
+    oldPosition === 'home' &&
+    diceValue === HOME_ENTRY_ROLL &&
+    Array.isArray(gameState.pendingDice) &&
+    gameState.pendingDice.length === 2
+  ) {
+    const otherIndex = diceIndex === 0 ? 1 : 0;
+    const otherVal = gameState.pendingDice[otherIndex];
+    if (
+      !gameState.usedDice[otherIndex] &&
+      otherVal &&
+      otherVal !== HOME_ENTRY_ROLL &&
+      otherVal !== 1 && // Do NOT auto-chain a single extra step; let player decide
+      typeof token.position === 'number'
+    ) {
+      const secondOldPosition = token.position;
+      const secondNewPosition = token.position + otherVal;
+      if (secondNewPosition <= TRACK_LENGTH) {
+        token.position = secondNewPosition;
+        gameState.usedDice[otherIndex] = true;
+        chainedMove = {
+          secondDiceIndex: otherIndex,
+          secondDiceValue: otherVal,
+          secondOldPosition,
+          secondNewPosition,
+        };
+      }
+    }
+  }
+
+  // Check if both dice are used (after potential chain application)
   const allDiceUsed = gameState.usedDice.every((used) => used);
+  // If chain consumed second die and both dice used, suppress bonusMove (no extra action expected)
+  if (chainedMove && allDiceUsed) {
+    bonusMove = false;
+  }
 
   gameState.lastActionAt = Date.now();
 
@@ -179,6 +215,7 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
     finished: token.finished,
     bonusMove,
     allDiceUsed,
+    chainedMove,
   };
 }
 

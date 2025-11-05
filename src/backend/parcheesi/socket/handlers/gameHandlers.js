@@ -122,6 +122,13 @@ export function registerGameHandlers(io, socket) {
           event: 'roll:dice',
         });
 
+      logger.info('Emitting roll:result', {
+        playerId,
+        dice: result.dice,
+        diceType: typeof result.dice,
+        diceLength: result.dice?.length,
+      });
+
       io.to(roomId).emit('roll:result', {
         playerId,
         dice: result.dice,
@@ -177,6 +184,18 @@ export function registerGameHandlers(io, socket) {
           event: 'move:token',
         });
 
+      // Compute remaining legal moves if bonusMove still active and not all dice used
+      let remainingLegalMoves = [];
+      if (result.bonusMove && !result.allDiceUsed) {
+        try {
+          remainingLegalMoves = gameService.getLegalMoves
+            ? gameService.getLegalMoves(roomId, playerId)
+            : [];
+        } catch (e) {
+          remainingLegalMoves = [];
+        }
+      }
+
       io.to(roomId).emit('move:result', {
         playerId,
         tokenId,
@@ -185,6 +204,8 @@ export function registerGameHandlers(io, socket) {
         diceValue: result.diceValue,
         bonusMove: result.bonusMove,
         finished: result.finished,
+        chainedMove: result.chainedMove || null,
+        legalMoves: remainingLegalMoves,
       });
 
       if (result.gameWon) {

@@ -1,33 +1,69 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-export default function Dice3D({ values = [1, 1], isRolling, isMyTurn }) {
+export default function Dice3D({
+  values = [1, 1],
+  isRolling,
+  isMyTurn,
+  usedDice = [],
+}) {
+  console.log(
+    '[Dice3D] Rendering with values:',
+    values,
+    'values[0]:',
+    values[0],
+    'values[1]:',
+    values[1],
+    'isRolling:',
+    isRolling
+  );
   return (
     <div className="flex space-x-4">
-      <SingleDie diceValue={values[0]} isRolling={isRolling} />
-      <SingleDie diceValue={values[1]} isRolling={isRolling} />
+      <SingleDie
+        key={`die-0-${values[0]}`}
+        index={0}
+        diceValue={values[0]}
+        isRolling={isRolling}
+        used={!!usedDice[0]}
+      />
+      <SingleDie
+        key={`die-1-${values[1]}`}
+        index={1}
+        diceValue={values[1]}
+        isRolling={isRolling}
+        used={!!usedDice[1]}
+      />
     </div>
   );
 }
 
-function SingleDie({ diceValue = 1, isRolling }) {
+function SingleDie({ index, diceValue = 1, isRolling, used }) {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
+  console.log(
+    `[SingleDie ${index}] diceValue:`,
+    diceValue,
+    'isRolling:',
+    isRolling
+  );
+
   // ✅ Corrected face rotation map (to bring correct number to the front)
+  // Rotation mapping ensures requested face points toward viewer (Z+)
+  // Adjusted: show 6 (traditionally bottom) by rotating cube so 6 faces front.
   const faceRotations = {
-    1: { x: 0, y: 0 }, // Front
-    2: { x: 0, y: 180 }, // Back
-    3: { x: 0, y: 90 }, // Right
-    4: { x: 0, y: -90 }, // Left
-    5: { x: -90, y: 0 }, // Top
-    6: { x: 90, y: 0 }, // Bottom
+    1: { x: 0, y: 0 }, // 1 front
+    2: { x: 0, y: 180 }, // 2 back
+    3: { x: 0, y: 90 }, // 3 right
+    4: { x: 0, y: -90 }, // 4 left
+    5: { x: 90, y: 0 }, // 5 now treated as bottom -> rotate up
+    6: { x: -90, y: 0 }, // 6 top -> rotate down so 6 faces viewer
   };
 
   useEffect(() => {
     if (isRolling) {
-      // Simulate random spin before landing
-      const spinX = 360 * (2 + Math.floor(Math.random() * 3));
-      const spinY = 360 * (2 + Math.floor(Math.random() * 3));
+      // Simulate random spin before landing - use index to create different animations
+      const spinX = 360 * (2 + Math.floor(Math.random() * 3) + index);
+      const spinY = 360 * (2 + Math.floor(Math.random() * 3) + index * 0.5);
       setRotation({ x: spinX, y: spinY });
 
       const timer = setTimeout(() => {
@@ -38,10 +74,13 @@ function SingleDie({ diceValue = 1, isRolling }) {
     } else {
       setRotation(faceRotations[diceValue] || { x: 0, y: 0 });
     }
-  }, [diceValue, isRolling]);
+  }, [diceValue, isRolling, index]);
 
   return (
-    <div className="w-16 h-16 perspective-[600px]">
+    <div
+      className="w-16 h-16 perspective-[600px]"
+      style={{ opacity: used ? 0.4 : 1 }}
+    >
       <div
         className="relative w-full h-full transition-transform duration-[1500ms] ease-in-out"
         style={{

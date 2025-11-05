@@ -1,6 +1,6 @@
 // Room service (was part of rooms.js) - manages room membership/lifecycle
-import { createGameState } from "#parcheesi/rules.js";
-import { logger } from "#shared/logging/logger.js";
+import { createGameState } from '#parcheesi/rules.js';
+import { logger } from '#shared/logging/logger.js';
 
 // In-memory structures (can be replaced by Redis adapter later)
 const rooms = new Map(); // roomId -> room object
@@ -17,7 +17,7 @@ function ensureRoom(roomId, requiredPlayers = 2) {
       createdAt: Date.now(),
       startedAt: null,
     });
-    logger.info("Room created", { roomId, requiredPlayers });
+    logger.info('Room created', { roomId, requiredPlayers });
   }
   return rooms.get(roomId);
 }
@@ -27,21 +27,21 @@ export const roomService = {
     const room = ensureRoom(roomId, requiredPlayers);
 
     if (room.gameState && room.gameState.gameStarted) {
-      return { success: false, error: "Game already in progress" };
+      return { success: false, error: 'Game already in progress' };
     }
     if (room.players.size >= 4) {
-      return { success: false, error: "Room is full" };
+      return { success: false, error: 'Room is full' };
     }
     const already = Array.from(room.players).some(
       (p) => p.playerId === playerId
     );
-    if (already) return { success: false, error: "Player already in room" };
+    if (already) return { success: false, error: 'Player already in room' };
 
     room.players.add({ socketId, playerId });
     playerToRoom.set(socketId, roomId);
     socketToPlayer.set(socketId, playerId);
 
-    logger.info("Player joined room", {
+    logger.info('Player joined room', {
       roomId,
       playerId,
       playerCount: room.players.size,
@@ -62,9 +62,9 @@ export const roomService = {
   },
   leaveRoom(socketId) {
     const roomId = playerToRoom.get(socketId);
-    if (!roomId) return { success: false, error: "Not in any room" };
+    if (!roomId) return { success: false, error: 'Not in any room' };
     const room = rooms.get(roomId);
-    if (!room) return { success: false, error: "Room not found" };
+    if (!room) return { success: false, error: 'Room not found' };
 
     const playerId = socketToPlayer.get(socketId);
     room.players = new Set(
@@ -73,7 +73,7 @@ export const roomService = {
     playerToRoom.delete(socketId);
     socketToPlayer.delete(socketId);
 
-    logger.info("Player left room", {
+    logger.info('Player left room', {
       roomId,
       playerId,
       remainingPlayers: room.players.size,
@@ -81,7 +81,7 @@ export const roomService = {
 
     if (room.players.size === 0) {
       rooms.delete(roomId);
-      logger.info("Room deleted (empty)", { roomId });
+      logger.info('Room deleted (empty)', { roomId });
     }
 
     return {
@@ -93,18 +93,18 @@ export const roomService = {
   },
   startGame(roomId) {
     const room = rooms.get(roomId);
-    if (!room) return { success: false, error: "Room not found" };
+    if (!room) return { success: false, error: 'Room not found' };
     if (room.players.size < 2)
-      return { success: false, error: "Need at least 2 players" };
+      return { success: false, error: 'Need at least 2 players' };
     if (room.gameState && room.gameState.gameStarted)
-      return { success: false, error: "Game already started" };
+      return { success: false, error: 'Game already started' };
 
     const playerIds = Array.from(room.players).map((p) => p.playerId);
     room.gameState = createGameState(playerIds);
     room.gameState.gameStarted = true;
     room.startedAt = Date.now();
 
-    logger.info("Game started", { roomId, playerCount: playerIds.length });
+    logger.info('Game started', { roomId, playerCount: playerIds.length });
     return { success: true, gameState: room.gameState };
   },
   getGameState(roomId) {
