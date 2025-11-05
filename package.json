@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#shared/*": "./src/shared/*",
+    "#backend/*": "./src/backend/*",
+    "#parcheesi/*": "./src/backend/parcheesi/*",
+    "#frontend/*": "./src/frontend/*"
+  },
   "scripts": {
     "dev": "node src/server/bootstrap/server.js",
     "build": "next build --turbopack",

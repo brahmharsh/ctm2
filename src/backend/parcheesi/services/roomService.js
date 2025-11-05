@@ -1,6 +1,6 @@
 // Room service (was part of rooms.js) - manages room membership/lifecycle
-import { createGameState } from "../rules.js";
-import { logger } from "../../../shared/logging/logger.js";
+import { createGameState } from "#parcheesi/rules.js";
+import { logger } from "#shared/logging/logger.js";
 
 // In-memory structures (can be replaced by Redis adapter later)
 const rooms = new Map(); // roomId -> room object

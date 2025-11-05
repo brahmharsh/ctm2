@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 
 export default function Lobby({ onCreateRoom, onJoinRoom }) {
   const [mode, setMode] = useState(null); // 'create' or 'join'
   const [playerCount, setPlayerCount] = useState(2);
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState('');
 
   if (!mode) {
     return (
@@ -14,7 +14,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom }) {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-5xl font-bold text-gray-800 dark:text-white mb-2">
-              🎲 Ludo
+              🎲 Parcheesi 🎲
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
               Classic board game reimagined
@@ -25,7 +25,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom }) {
           <div className="space-y-4">
             {/* Create Room Card */}
             <button
-              onClick={() => setMode("create")}
+              onClick={() => setMode('create')}
               className="w-full p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 border-2 border-transparent hover:border-indigo-500 dark:hover:border-purple-500 group"
             >
               <div className="flex items-center justify-between">
@@ -60,7 +60,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom }) {
 
             {/* Join Room Card */}
             <button
-              onClick={() => setMode("join")}
+              onClick={() => setMode('join')}
               className="w-full p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 border-2 border-transparent hover:border-purple-500 dark:hover:border-indigo-500 group"
             >
               <div className="flex items-center justify-between">
@@ -105,7 +105,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom }) {
     );
   }
 
-  if (mode === "create") {
+  if (mode === 'create') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-950">
         <div className="w-full max-w-md px-6">
@@ -156,8 +156,8 @@ export default function Lobby({ onCreateRoom, onJoinRoom }) {
                     onClick={() => setPlayerCount(count)}
                     className={`py-4 rounded-xl font-semibold transition-all duration-200 ${
                       playerCount === count
-                        ? "bg-indigo-600 dark:bg-purple-600 text-white shadow-lg scale-105"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        ? 'bg-indigo-600 dark:bg-purple-600 text-white shadow-lg scale-105'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
                     {count}
@@ -187,7 +187,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom }) {
     );
   }
 
-  if (mode === "join") {
+  if (mode === 'join') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-950">
         <div className="w-full max-w-md px-6">
@@ -251,8 +251,8 @@ export default function Lobby({ onCreateRoom, onJoinRoom }) {
               disabled={!roomId}
               className={`w-full py-4 rounded-xl font-semibold shadow-lg transition-all duration-200 transform ${
                 roomId
-                  ? "bg-purple-600 dark:bg-indigo-600 text-white hover:bg-purple-700 dark:hover:bg-indigo-700 hover:scale-[1.02]"
-                  : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  ? 'bg-purple-600 dark:bg-indigo-600 text-white hover:bg-purple-700 dark:hover:bg-indigo-700 hover:scale-[1.02]'
+                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
               }`}
             >
               Join Room

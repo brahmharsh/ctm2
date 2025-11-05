@@ -13,9 +13,9 @@ import next from 'next';
 import { createServer } from 'http';
 import { parse } from 'url';
 import { Server } from 'socket.io';
-import { registerSocketHandlers } from '../socket/index.js';
+import { registerSocketHandlers } from '#parcheesi/socket/index.js';
 // Using relative path because Node (outside Next transpilation) doesn't resolve @ alias
-import { logger } from '../../shared/logging/logger.js';
+import { logger } from '#shared/logging/logger.js';
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });

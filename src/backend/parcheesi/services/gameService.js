@@ -8,8 +8,8 @@ import {
   isPlayerTurn,
   attachPendingDice,
   shouldAdvanceTurn,
-} from '../rules.js';
-import { roomService } from './roomService.js';
+} from '#parcheesi/rules.js';
+import { roomService } from '#parcheesi/services/roomService.js';
 
 export const gameService = {
   startGame(roomId) {
