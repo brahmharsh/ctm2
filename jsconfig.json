@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
+    "baseUrl": "./",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@frontend/*": ["./src/frontend/*"],
+      "@frontend/parcheesi/*": ["./src/frontend/parcheesi/*"],
+      "@backend/*": ["./src/backend/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   }
 }

@@ -1,13 +1,23 @@
 // Custom Next.js + Socket.IO single-port server (refactored path)
-import next from "next";
-import { createServer } from "http";
-import { parse } from "url";
-import { Server } from "socket.io";
-import { registerSocketHandlers } from "../socket/index.js";
-// Using relative path because Node (outside Next transpilation) doesn't resolve @ alias
-import { logger } from "../../shared/logging/logger.js";
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
-const dev = process.env.NODE_ENV !== "production";
+// Load .env.local from project root (if exists)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = resolve(__dirname, '../../../');
+dotenv.config({ path: resolve(projectRoot, '.env.local') });
+
+import next from 'next';
+import { createServer } from 'http';
+import { parse } from 'url';
+import { Server } from 'socket.io';
+import { registerSocketHandlers } from '../socket/index.js';
+// Using relative path because Node (outside Next transpilation) doesn't resolve @ alias
+import { logger } from '../../shared/logging/logger.js';
+
+const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
 const PORT = process.env.PORT || 3000;
@@ -23,28 +33,28 @@ async function start() {
   const io = new Server(httpServer, {
     cors: {
       origin: process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${PORT}`,
-      methods: ["GET", "POST"],
+      methods: ['GET', 'POST'],
     },
   });
 
   registerSocketHandlers(io);
 
   httpServer.listen(PORT, () => {
-    logger.info("Unified server started", { port: PORT });
+    logger.info('Unified server started', { port: PORT });
     console.log(
       `🚀 Server (Next.js + Socket.IO) listening on http://localhost:${PORT}`
     );
   });
 
-  process.on("SIGTERM", () => {
-    logger.info("SIGTERM received, shutting down");
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down');
     io.close();
     httpServer.close(() => process.exit(0));
   });
 }
 
 start().catch((err) => {
-  logger.error("Server startup failed", { error: err.message });
+  logger.error('Server startup failed', { error: err.message });
   console.error(err);
   process.exit(1);
 });

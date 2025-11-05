@@ -1,5 +1,5 @@
 // /game-logic.js
-import { GRID_SIZE, PLAYERS } from "./constants";
+import { GRID_SIZE, PLAYERS } from '../config/constants';
 
 export function buildPath() {
   const path = [];
@@ -108,40 +108,40 @@ export function buildPath() {
 
   //Assign code number to tails
   //for yellow tail (cells merged horizontally)
-  gameCells["Y1"] = [369, 370]; // Cell Y1
-  gameCells["Y2"] = [349, 350]; // Cell Y2
-  gameCells["Y3"] = [329, 330]; // Cell Y3
-  gameCells["Y4"] = [309, 310]; // Cell Y4
-  gameCells["Y5"] = [289, 290]; // Cell Y5
-  gameCells["Y6"] = [269, 270]; // Cell Y6
-  gameCells["Y7"] = [249, 250]; // Cell Y7
+  gameCells['Y1'] = [369, 370]; // Cell Y1
+  gameCells['Y2'] = [349, 350]; // Cell Y2
+  gameCells['Y3'] = [329, 330]; // Cell Y3
+  gameCells['Y4'] = [309, 310]; // Cell Y4
+  gameCells['Y5'] = [289, 290]; // Cell Y5
+  gameCells['Y6'] = [269, 270]; // Cell Y6
+  gameCells['Y7'] = [249, 250]; // Cell Y7
 
   //for blue tail (cells merged vertically)
-  gameCells["B1"] = [198, 218]; // Cell B1
-  gameCells["B2"] = [197, 217]; // Cell B2
-  gameCells["B3"] = [196, 216]; // Cell B3
-  gameCells["B4"] = [195, 215]; // Cell B4
-  gameCells["B5"] = [194, 214]; // Cell B5
-  gameCells["B6"] = [193, 213]; // Cell B6
-  gameCells["B7"] = [192, 212]; // Cell B7
+  gameCells['B1'] = [198, 218]; // Cell B1
+  gameCells['B2'] = [197, 217]; // Cell B2
+  gameCells['B3'] = [196, 216]; // Cell B3
+  gameCells['B4'] = [195, 215]; // Cell B4
+  gameCells['B5'] = [194, 214]; // Cell B5
+  gameCells['B6'] = [193, 213]; // Cell B6
+  gameCells['B7'] = [192, 212]; // Cell B7
 
   //for red tail (cells merged horizontally)
-  gameCells["R1"] = [29, 30]; // Cell R1
-  gameCells["R2"] = [49, 50]; // Cell R2
-  gameCells["R3"] = [69, 70]; // Cell R3
-  gameCells["R4"] = [89, 90]; // Cell R4
-  gameCells["R5"] = [109, 110]; // Cell R5
-  gameCells["R6"] = [129, 130]; // Cell R6
-  gameCells["R7"] = [149, 150]; // Cell R7
+  gameCells['R1'] = [29, 30]; // Cell R1
+  gameCells['R2'] = [49, 50]; // Cell R2
+  gameCells['R3'] = [69, 70]; // Cell R3
+  gameCells['R4'] = [89, 90]; // Cell R4
+  gameCells['R5'] = [109, 110]; // Cell R5
+  gameCells['R6'] = [129, 130]; // Cell R6
+  gameCells['R7'] = [149, 150]; // Cell R7
 
   //for green tail (cells merged vertically)
-  gameCells["G1"] = [181, 201]; // Cell G1
-  gameCells["G2"] = [182, 202]; // Cell G2
-  gameCells["G3"] = [183, 203]; // Cell G3
-  gameCells["G4"] = [184, 204]; // Cell G4
-  gameCells["G5"] = [185, 205]; // Cell G5
-  gameCells["G6"] = [186, 206]; // Cell G6
-  gameCells["G7"] = [187, 207]; // Cell G7
+  gameCells['G1'] = [181, 201]; // Cell G1
+  gameCells['G2'] = [182, 202]; // Cell G2
+  gameCells['G3'] = [183, 203]; // Cell G3
+  gameCells['G4'] = [184, 204]; // Cell G4
+  gameCells['G5'] = [185, 205]; // Cell G5
+  gameCells['G6'] = [186, 206]; // Cell G6
+  gameCells['G7'] = [187, 207]; // Cell G7
 
   return { path, gameCells };
 }

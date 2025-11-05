@@ -1,32 +1,39 @@
 // /hooks/useGame.js
-"use client";
-import { useEffect, useRef, useState, useCallback } from "react";
-import { buildPath } from "../game-logic";
-import { drawBoard } from "../drawing";
-import { GRID_SIZE, START_CELLS, PLAYERS } from "../constants";
-import { api } from "../services/api";
+'use client';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { buildPath } from '../utils/gameLogic';
+import { drawBoard } from '../utils/drawing';
 import {
-  rollDice as wsRollDice,
-  startGame as wsStartGame,
+  GRID_SIZE,
+  START_CELLS,
+  PLAYERS,
+  CORNER_SIZE,
+  PLAYER_POSITIONS,
+} from '../config/constants';
+import { useDice } from './useDice';
+import {
   onStateUpdate,
   onTurnEnd,
   onRoomUpdate,
   requestGameState,
-} from "@/client/ludo/client";
+  moveToken as wsMoveToken,
+  onMoveResult,
+  onGameStarted,
+} from '../services/websocketClient';
 
 export function useGame(initialRoomId, initialPlayerId) {
   const canvasRef = useRef(null);
   const diceResultRef = useRef(null);
   const [debug, setDebug] = useState(false);
-  const [pieceColor, setPieceColor] = useState("");
+  const [pieceColor, setPieceColor] = useState('');
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [isRolling, setIsRolling] = useState(false);
   const [players, setPlayers] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState(null);
   // Track the current player's id; we need both value and setter (was missing causing runtime error)
   const [playerId, setPlayerId] = useState(initialPlayerId || null);
   const [gameStarted, setGameStarted] = useState(false);
   const [pieces, setPieces] = useState([]);
+  const [selectedTokenId, setSelectedTokenId] = useState(null);
   const avatarImageRef = useRef(null);
   const moveToIndexRef = useRef(null);
   const piecesRef = useRef(pieces);
@@ -43,6 +50,34 @@ export function useGame(initialRoomId, initialPlayerId) {
   const isResizingRef = useRef(false);
   const piecePositionsRef = useRef({}); // Store actual cell positions for each piece
 
+  const { isRolling, rollDice, startGame, animatedDice, legalMoves } = useDice(
+    playerId,
+    currentPlayer
+  );
+
+  // When legal moves are available, mark the corresponding tokens as selectable
+  useEffect(() => {
+    if (legalMoves && legalMoves.length > 0) {
+      const selectableTokenIds = new Set(
+        legalMoves.map((move) => move.tokenId)
+      );
+      setPieces((prevPieces) =>
+        prevPieces.map((p) => ({
+          ...p,
+          selectable: selectableTokenIds.has(p.tokenId),
+        }))
+      );
+    } else {
+      // If there are no legal moves, no tokens should be selectable.
+      setPieces((prevPieces) =>
+        prevPieces.map((p) => ({
+          ...p,
+          selectable: false,
+        }))
+      );
+    }
+  }, [legalMoves]);
+
   // Update the ref whenever pieces changes
   useEffect(() => {
     piecesRef.current = pieces;
@@ -53,47 +88,73 @@ export function useGame(initialRoomId, initialPlayerId) {
     let unsubscribeState = () => {};
     let unsubscribeTurn = () => {};
     let unsubscribeRoom = () => {};
+    let unsubscribeStarted = () => {};
 
     const initializeGame = async () => {
       try {
-        console.log("[useGame] Initializing with:", {
-          initialRoomId,
-          initialPlayerId,
-          playerId,
-        });
+        // console.log('[useGame] Initializing with:', {
+        //   initialRoomId,
+        //   initialPlayerId,
+        //   playerId,
+        // });
 
         // Subscribe to room updates (players join/leave)
         unsubscribeRoom = onRoomUpdate((data) => {
-          console.log("[useGame] Room update received:", data);
+          // console.log('[useGame] Room update received:', data);
           setPlayers((prev) => {
             if (prev.length && prev.every((p) => p.id)) {
               const idToPlayer = Object.fromEntries(prev.map((p) => [p.id, p]));
               return data.players.map(
-                (pid) => idToPlayer[pid] || { id: pid, color: "unknown" }
+                (pid) => idToPlayer[pid] || { id: pid, color: 'unknown' }
               );
             }
-            return data.players.map((pid) => ({ id: pid, color: "unknown" }));
+            return data.players.map((pid) => ({ id: pid, color: 'unknown' }));
           });
+        });
+
+        // Subscribe to game started event
+        unsubscribeStarted = onGameStarted((data) => {
+          console.log('[useGame] 🎮 Game started!');
+          if (data?.gameState) {
+            const gs = data.gameState;
+            setPlayers(gs.players);
+            setGameStarted(true);
+            setPendingDice(gs.pendingDice || []);
+            setUsedDice(gs.usedDice || []);
+
+            if (
+              gs.currentPlayerIndex != null &&
+              gs.players[gs.currentPlayerIndex]
+            ) {
+              setCurrentPlayer(gs.players[gs.currentPlayerIndex]);
+            }
+
+            const player = gs.players.find((p) => p.id === playerId);
+            if (player?.color) {
+              console.log('[useGame] ✓ My color:', player.color);
+              setPieceColor(player.color);
+            }
+          }
         });
 
         // Subscribe to state updates
         unsubscribeState = onStateUpdate((data) => {
-          console.log(
-            "[useGame] ★★★ State update received:",
-            JSON.stringify(data, null, 2)
-          );
+          // console.log(
+          //   '[useGame] ★★★ State update received:',
+          //   JSON.stringify(data, null, 2)
+          // );
           if (!data?.gameState) {
-            console.warn("[useGame] ⚠️ No gameState in update");
+            // console.warn('[useGame] ⚠️ No gameState in update (game not started yet)');
             return;
           }
           const gs = data.gameState;
-          console.log("[useGame] Processing game state:", {
-            playersCount: gs.players?.length,
-            players: gs.players,
-            currentPlayerIndex: gs.currentPlayerIndex,
-            gameStarted: gs.gameStarted,
-            myPlayerId: playerId,
-          });
+          // console.log('[useGame] Processing game state:', {
+          //   playersCount: gs.players?.length,
+          //   players: gs.players,
+          //   currentPlayerIndex: gs.currentPlayerIndex,
+          //   gameStarted: gs.gameStarted,
+          //   myPlayerId: playerId,
+          // });
 
           setPlayers(gs.players);
           if (
@@ -101,58 +162,67 @@ export function useGame(initialRoomId, initialPlayerId) {
             gs.players[gs.currentPlayerIndex]
           ) {
             setCurrentPlayer(gs.players[gs.currentPlayerIndex]);
-            console.log(
-              "[useGame] ✓ Set current player:",
-              gs.players[gs.currentPlayerIndex]
-            );
+            // console.log(
+            //   '[useGame] ✓ Set current player:',
+            //   gs.players[gs.currentPlayerIndex]
+            // );
           }
           setGameStarted(gs.gameStarted);
-          console.log("[useGame] ✓ Set gameStarted:", gs.gameStarted);
+
+          // DEBUG: Check if dice are being set
+          if (gs.pendingDice && gs.pendingDice.length > 0) {
+            console.log(
+              '[useGame] 🎲 DICE SET:',
+              gs.pendingDice,
+              'Used:',
+              gs.usedDice
+            );
+          }
+          // console.log('[useGame] ✓ Set gameStarted:', gs.gameStarted);
 
           // Set player color based on playerId
           const player = gs.players.find((p) => p.id === playerId);
-          console.log("[useGame] Looking for playerId:", playerId);
-          console.log(
-            "[useGame] Available players:",
-            JSON.stringify(gs.players, null, 2)
-          );
-          console.log("[useGame] Found player:", player);
+          // console.log('[useGame] Looking for playerId:', playerId);
+          // console.log(
+          //   '[useGame] Available players:',
+          //   JSON.stringify(gs.players, null, 2)
+          // );
+          // console.log('[useGame] Found player:', player);
 
           if (player && player.color) {
-            console.log(
-              "[useGame] ✓ Setting piece color:",
-              player.color,
-              "for player:",
-              playerId
-            );
+            // console.log(
+            //   '[useGame] ✓ Setting piece color:',
+            //   player.color,
+            //   'for player:',
+            //   playerId
+            // );
             setPieceColor(player.color);
           } else {
             console.error(
-              "[useGame] ❌ Could not find player color for:",
-              playerId,
-              "in players:",
-              gs.players
+              '[useGame] ❌ Could not find player color for:',
+              playerId
             );
           }
         });
 
         // Subscribe to turn end updates
         unsubscribeTurn = onTurnEnd((data) => {
-          console.log("[useGame] Turn end:", data);
+          // console.log('[useGame] Turn end:', data);
           if (data?.nextPlayer) {
             setCurrentPlayer((prev) => {
               return players.find((p) => p.id === data.nextPlayer) || prev;
             });
           }
+          setSelectedTokenId(null);
         });
 
         // Request current game state immediately after subscribing
         // This ensures we get the state even if we missed the initial update:state emission
-        console.log("[useGame] 🔄 Requesting current game state...");
+        // console.log('[useGame] 🔄 Requesting current game state...');
         requestGameState();
       } catch (error) {
         console.error(
-          "[useGame] ❌ Error initializing game (WebSocket):",
+          '[useGame] ❌ Error initializing game (WebSocket):',
           error
         );
       }
@@ -163,50 +233,116 @@ export function useGame(initialRoomId, initialPlayerId) {
       unsubscribeState();
       unsubscribeTurn();
       unsubscribeRoom();
+      unsubscribeStarted();
     };
   }, [playerId]);
 
-  // Initialize pieces when players change
+  // Map of home path indices for each color (first player request focuses on yellow)
+  // Corner-local slot layout (2x2) not relying on path indices
+  // Each color gets four relative slot offsets inside its corner square.
+  const HOME_SLOTS = {
+    yellow: [
+      // bottom-right corner
+      { ox: 0.2, oy: 0.2 },
+      { ox: 0.7, oy: 0.2 },
+      { ox: 0.2, oy: 0.7 },
+      { ox: 0.7, oy: 0.7 },
+    ],
+    blue: [
+      // top-right
+      { ox: 0.2, oy: 0.2 },
+      { ox: 0.7, oy: 0.2 },
+      { ox: 0.2, oy: 0.7 },
+      { ox: 0.7, oy: 0.7 },
+    ],
+    red: [
+      // top-left
+      { ox: 0.2, oy: 0.2 },
+      { ox: 0.7, oy: 0.2 },
+      { ox: 0.2, oy: 0.7 },
+      { ox: 0.7, oy: 0.7 },
+    ],
+    green: [
+      // bottom-left
+      { ox: 0.2, oy: 0.2 },
+      { ox: 0.7, oy: 0.2 },
+      { ox: 0.2, oy: 0.7 },
+      { ox: 0.7, oy: 0.7 },
+    ],
+  };
+
+  // Initialize token pieces from backend player tokens
   useEffect(() => {
     if (!gameStarted || players.length === 0) return;
 
-    const newPieces = players.map((player) => {
-      const startCell = player.startCell;
-      return {
-        id: player.id,
-        color: player.color,
-        position: startCell,
-        x: 0,
-        y: 0,
-        px: 0,
-        py: 0,
-      };
+    // console.log('[useGame] 🎮 Initializing pieces from players:', players);
+
+    const allPieces = [];
+    players.forEach((player) => {
+      const color = player.color;
+      if (Array.isArray(player.tokens)) {
+        // First pass: identify tokens still in home for this player
+        const homeTokens = player.tokens.filter((t) => t.position === 'home');
+
+        // console.log(`[useGame] Player ${player.id} (${color}):`, {
+        //   totalTokens: player.tokens.length,
+        //   homeTokens: homeTokens.length,
+        //   tokens: player.tokens,
+        // });
+
+        player.tokens.forEach((token, idx) => {
+          const inHome = token.position === 'home';
+
+          // For home tokens, reassign slot based on remaining home tokens
+          // This creates the 4→3→2→1 visual effect as tokens leave
+          let displaySlotIndex = idx;
+          if (inHome) {
+            displaySlotIndex = homeTokens.findIndex((t) => t.id === token.id);
+          }
+
+          allPieces.push({
+            id: token.id,
+            tokenId: token.id,
+            playerId: player.id,
+            color,
+            position: inHome ? null : token.position,
+            inHome,
+            slotIndex: displaySlotIndex,
+            finished: token.finished,
+            x: 0,
+            y: 0,
+            px: 0,
+            py: 0,
+          });
+        });
+      }
     });
 
-    setPieces(newPieces);
-    initializedRef.current = false; // Reset initialization flag when pieces change
+    // console.log('[useGame] ✓ Initialized pieces:', allPieces);
+    setPieces(allPieces);
+    initializedRef.current = false;
   }, [players, gameStarted]);
 
   useEffect(() => {
     const img = new Image();
-    img.src = "/avatar.png";
+    img.src = '/avatar.png';
     img.onload = () => {
       avatarImageRef.current = img;
       setImageLoaded(true);
     };
     img.onerror = () => {
-      console.error("Failed to load avatar image");
-      const canvas = document.createElement("canvas");
+      console.error('Failed to load avatar image');
+      const canvas = document.createElement('canvas');
       canvas.width = 100;
       canvas.height = 100;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#888";
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#888';
       ctx.fillRect(0, 0, 100, 100);
-      ctx.fillStyle = "#fff";
-      ctx.font = "40px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("👤", 50, 50);
+      ctx.fillStyle = '#fff';
+      ctx.font = '40px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('👤', 50, 50);
 
       const placeholderImg = new Image();
       placeholderImg.src = canvas.toDataURL();
@@ -265,10 +401,11 @@ export function useGame(initialRoomId, initialPlayerId) {
         imageLoaded,
         avatarImageRef,
         players,
+        selectedTokenId,
         animationFrame
       );
     };
-  }, [pieceColor, debug, imageLoaded, players]);
+  }, [pieceColor, debug, imageLoaded, players, selectedTokenId]);
 
   // Function to recalculate piece positions after resize
   const recalculatePiecePositions = useCallback(() => {
@@ -284,45 +421,40 @@ export function useGame(initialRoomId, initialPlayerId) {
 
     // Update positions for all pieces
     const updatedPieces = pieces.map((piece) => {
-      // Use the stored position from piecePositionsRef if available
-      const currentCell = piecePositionsRef.current[piece.id] || piece.position;
-      let targetIndices;
-
-      // Check if the piece is in the home path
-      if (typeof currentCell === "string") {
-        targetIndices = gameCells[currentCell];
-      } else {
-        targetIndices = gameCells[currentCell];
+      // Corner-local placement for home tokens
+      if (piece.inHome) {
+        const pos = PLAYER_POSITIONS[piece.color];
+        if (pos) {
+          const slots = HOME_SLOTS[piece.color] || [];
+          const slot = slots[piece.slotIndex] || slots[0];
+          const cornerPixelSize = CORNER_SIZE * cellSize;
+          const baseX = pos.x * cellSize;
+          const baseY = pos.y * cellSize;
+          const px = baseX + cornerPixelSize * slot.ox;
+          const py = baseY + cornerPixelSize * slot.oy;
+          return { ...piece, px, py };
+        }
+        return piece;
       }
 
+      // Piece out of home: use board cell mapping (existing logic)
+      const currentCell = piecePositionsRef.current[piece.id] || piece.position;
+      const targetIndices = gameCells[currentCell];
       if (!targetIndices) return piece;
-
       const firstCell = path[targetIndices[0]];
       const secondCell = path[targetIndices[1]];
-
-      const isHorizontal = firstCell.y === secondCell.y;
-
-      let px, py;
-
-      if (isHorizontal) {
-        px =
-          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
-        py =
-          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
-      } else {
-        px =
-          (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
-        py =
-          (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
-      }
-
+      if (!firstCell || !secondCell) return piece;
+      let px =
+        (firstCell.x * cellSize + secondCell.x * cellSize) / 2 + cellSize / 2;
+      let py =
+        (firstCell.y * cellSize + secondCell.y * cellSize) / 2 + cellSize / 2;
       return {
         ...piece,
         x: firstCell.x,
         y: firstCell.y,
         px,
         py,
-        position: currentCell, // Ensure position is preserved
+        position: currentCell,
       };
     });
 
@@ -336,7 +468,7 @@ export function useGame(initialRoomId, initialPlayerId) {
     if (!gameStarted || !pieceColor) return;
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     canvasContextRef.current = ctx;
     const { path, gameCells } = buildPath();
 
@@ -376,11 +508,11 @@ export function useGame(initialRoomId, initialPlayerId) {
 
     // Store the resize handler in a ref so we can remove it later
     resizeHandlerRef.current = resizeCanvas;
-    window.addEventListener("resize", resizeHandlerRef.current);
+    window.addEventListener('resize', resizeHandlerRef.current);
 
     return () => {
       if (resizeHandlerRef.current) {
-        window.removeEventListener("resize", resizeHandlerRef.current);
+        window.removeEventListener('resize', resizeHandlerRef.current);
       }
     };
   }, [
@@ -416,10 +548,33 @@ export function useGame(initialRoomId, initialPlayerId) {
 
     // Update positions for all pieces
     const updatedPieces = pieces.map((piece) => {
+      // Handle tokens in home base
+      if (piece.inHome) {
+        const pos = PLAYER_POSITIONS[piece.color];
+        if (pos) {
+          const slots = HOME_SLOTS[piece.color] || [];
+          const slot = slots[piece.slotIndex] || slots[0];
+          const cornerPixelSize = CORNER_SIZE * cellSize;
+          const baseX = pos.x * cellSize;
+          const baseY = pos.y * cellSize;
+          const px = baseX + cornerPixelSize * slot.ox;
+          const py = baseY + cornerPixelSize * slot.oy;
+          return { ...piece, px, py };
+        }
+        return piece; // fallback if corner not found
+      }
+
+      // Handle tokens on the board
       const startCell = piece.position;
+      if (startCell == null) return piece; // skip if no position set
+
       const firstCellIndices = gameCells[startCell];
+      if (!firstCellIndices) return piece; // skip if cell not found
+
       const firstCell = path[firstCellIndices[0]];
       const secondCell = path[firstCellIndices[1]];
+
+      if (!firstCell || !secondCell) return piece; // skip if path cells not found
 
       const isHorizontal = firstCell.y === secondCell.y;
 
@@ -475,7 +630,7 @@ export function useGame(initialRoomId, initialPlayerId) {
         if (onComplete) onComplete();
         return;
       }
-      if (isMovingRef.current && typeof onComplete === "undefined") return;
+      if (isMovingRef.current && typeof onComplete === 'undefined') return;
 
       isMovingRef.current = true;
       const currentCell = currentGameCellRef.current[playerId];
@@ -591,7 +746,7 @@ export function useGame(initialRoomId, initialPlayerId) {
         if (onComplete) onComplete();
         return;
       }
-      if (isMovingRef.current && typeof onComplete === "undefined") return;
+      if (isMovingRef.current && typeof onComplete === 'undefined') return;
 
       isMovingRef.current = true;
 
@@ -687,21 +842,21 @@ export function useGame(initialRoomId, initialPlayerId) {
       let homePathPrefix;
 
       switch (player.color) {
-        case "yellow":
+        case 'yellow':
           entryCell = 68;
-          homePathPrefix = "Y";
+          homePathPrefix = 'Y';
           break;
-        case "blue":
+        case 'blue':
           entryCell = 17;
-          homePathPrefix = "B";
+          homePathPrefix = 'B';
           break;
-        case "red":
+        case 'red':
           entryCell = 34;
-          homePathPrefix = "R";
+          homePathPrefix = 'R';
           break;
-        case "green":
+        case 'green':
           entryCell = 51;
-          homePathPrefix = "G";
+          homePathPrefix = 'G';
           break;
         default:
           return;
@@ -709,7 +864,7 @@ export function useGame(initialRoomId, initialPlayerId) {
 
       // Check if the piece is already in the home path
       if (
-        typeof currentCell === "string" &&
+        typeof currentCell === 'string' &&
         currentCell[0] === homePathPrefix
       ) {
         const currentHomeNum = parseInt(currentCell.substring(1));
@@ -761,7 +916,7 @@ export function useGame(initialRoomId, initialPlayerId) {
           const nextCell = moveSequence[currentMove];
           currentMove++;
 
-          if (typeof nextCell === "string") {
+          if (typeof nextCell === 'string') {
             moveToHomePath(
               nextCell,
               1,
@@ -786,49 +941,69 @@ export function useGame(initialRoomId, initialPlayerId) {
     moveToIndexRef.current = movePiece;
   }, [gameStarted, pieceColor, players]); // Removed pieces from dependencies
 
-  const rollDice = async () => {
-    if (isRolling || !playerId) return;
-    setIsRolling(true);
-    try {
-      console.log("[Socket] Emitting roll:dice");
-      wsRollDice((err, data) => {
+  // Canvas click to select token
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handleClick = (e) => {
+      if (!gameStarted || !currentPlayer || currentPlayer.id !== playerId)
+        return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / window.devicePixelRatio / rect.width;
+      const scaleY = canvas.height / window.devicePixelRatio / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      const cellSize = canvas.width / window.devicePixelRatio / GRID_SIZE;
+      const pickRadius = cellSize / 2;
+      let found = null;
+      piecesRef.current.forEach((p) => {
+        if (p.playerId !== playerId) return;
+        const dx = p.px - x;
+        const dy = p.py - y;
+        if (Math.sqrt(dx * dx + dy * dy) <= pickRadius) {
+          found = p;
+        }
+      });
+      if (found) {
+        setSelectedTokenId(found.tokenId);
+        console.log('[useGame] Selected token', found.tokenId);
+      } else {
+        setSelectedTokenId(null);
+      }
+    };
+    canvas.addEventListener('click', handleClick);
+    return () => canvas.removeEventListener('click', handleClick);
+  }, [gameStarted, currentPlayer, playerId]);
+
+  // Apply a specific die to selected token
+  const useDieForSelectedToken = (tokenId, diceIndex) => {
+    if (tokenId == null) {
+      console.log('[useGame] No token selected, cannot use die.');
+      return;
+    }
+
+    const move = legalMoves.find(
+      (m) => m.tokenId === tokenId && m.diceIndex === diceIndex
+    );
+
+    if (move) {
+      console.log('[useGame] Executing move:', move);
+      wsMoveToken(move.tokenId, move.diceIndex, (err, data) => {
         if (err) {
-          console.error("[Socket] Roll error", err);
-          if (diceResultRef.current)
-            diceResultRef.current.innerText = err.message || "Roll error";
-          setIsRolling(false);
+          console.error('[useGame] Move error', err);
           return;
         }
-        // Normalize dice to array (server may return a single number or an array)
-        const diceArr = Array.isArray(data.dice) ? data.dice : [data.dice];
-        if (diceResultRef.current) {
-          diceResultRef.current.innerText = `🎲 Dice: ${diceArr.join(", ")}`;
-        }
-        // Move piece locally for simple animation (combine dice values for now)
-        if (moveToIndexRef.current) {
-          // Example: use sum of dice for movement animation (adjust when legalMoves selection UI exists)
-          const steps = diceArr.reduce((a, b) => a + b, 0);
-          moveToIndexRef.current(playerId, steps);
-        }
-        setIsRolling(false);
+        // server will emit updated state, and we clear selection
+        setSelectedTokenId(null);
       });
-    } catch (e) {
-      console.error("[Socket] Roll unexpected error", e);
-      if (diceResultRef.current) diceResultRef.current.innerText = "Roll error";
-      setIsRolling(false);
+    } else {
+      console.warn(
+        '[useGame] No legal move found for token',
+        tokenId,
+        'with dice index',
+        diceIndex
+      );
     }
-  };
-
-  const startGame = () => {
-    console.log("[Socket] Starting game");
-    wsStartGame((err, data) => {
-      if (err) {
-        console.error("[Socket] Start game error", err);
-        alert("Failed to start game: " + err.message);
-        return;
-      }
-      console.log("[Socket] Game started", data);
-    });
   };
 
   const toggleDebug = () => {
@@ -867,5 +1042,7 @@ export function useGame(initialRoomId, initialPlayerId) {
     toggleDebug,
     changeColor,
     startGame,
+    onUseDie: useDieForSelectedToken,
+    selectedTokenId,
   };
 }

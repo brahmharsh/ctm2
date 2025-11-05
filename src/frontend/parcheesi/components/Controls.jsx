@@ -1,8 +1,10 @@
 // /components/Controls.js
-"use client";
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import Dice3D from './Dice3D';
 
 export default function Controls({
-  diceResultRef,
   debug,
   pieceColor,
   imageLoaded,
@@ -15,15 +17,17 @@ export default function Controls({
   changeColor,
   gameStarted,
   startGame,
+  animatedDice,
+  legalMoves,
+  onUseDie,
+  selectedTokenId,
 }) {
-  // Get the index of the current player for display
-  const currentPlayerIndex = players.findIndex((p) => p.id === playerId);
+  const currentPlayerIndex = players?.findIndex((p) => p.id === playerId) ?? -1;
   const playerNumber = currentPlayerIndex >= 0 ? currentPlayerIndex + 1 : 0;
   const isMyTurn = currentPlayer && currentPlayer.id === playerId;
 
   return (
     <div className="flex flex-col w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 space-y-4">
-      {/* Player Info Card */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -34,33 +38,32 @@ export default function Controls({
               className="w-4 h-4 rounded-full"
               style={{
                 backgroundColor:
-                  pieceColor === "yellow"
-                    ? "#FCD34D"
-                    : pieceColor === "blue"
-                    ? "#60A5FA"
-                    : pieceColor === "red"
-                    ? "#F87171"
-                    : pieceColor === "green"
-                    ? "#4ADE80"
-                    : "#D1D5DB",
+                  pieceColor === 'yellow'
+                    ? '#FCD34D'
+                    : pieceColor === 'blue'
+                    ? '#60A5FA'
+                    : pieceColor === 'red'
+                    ? '#F87171'
+                    : pieceColor === 'green'
+                    ? '#4ADE80'
+                    : '#D1D5DB',
               }}
             />
             <span className="font-semibold text-gray-800 dark:text-white capitalize">
-              {pieceColor || "Waiting..."}
+              {pieceColor || 'Waiting...'}
             </span>
           </div>
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          Player {playerNumber} of {players.length}
+          Player {playerNumber} of {players?.length || 0}
         </div>
       </div>
 
-      {/* Current Turn Indicator */}
       <div
         className={`rounded-xl p-4 border-2 transition-all ${
           isMyTurn
-            ? "bg-green-50 dark:bg-green-900/30 border-green-500 dark:border-green-400"
-            : "bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600"
+            ? 'bg-green-50 dark:bg-green-900/30 border-green-500 dark:border-green-400'
+            : 'bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600'
         }`}
       >
         <div className="flex items-center justify-between">
@@ -74,11 +77,11 @@ export default function Controls({
             <span
               className={`font-semibold capitalize ${
                 isMyTurn
-                  ? "text-green-700 dark:text-green-400"
-                  : "text-gray-700 dark:text-gray-300"
+                  ? 'text-green-700 dark:text-green-400'
+                  : 'text-gray-700 dark:text-gray-300'
               }`}
             >
-              {currentPlayer?.color || "Waiting..."}
+              {currentPlayer?.color || 'Waiting...'}
             </span>
           </div>
         </div>
@@ -89,19 +92,48 @@ export default function Controls({
         )}
       </div>
 
-      {/* Dice Result */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center">
-        <p
-          ref={diceResultRef}
-          className="text-lg font-bold text-gray-700 dark:text-gray-300 min-h-[28px]"
-        >
-          {/* Dice result will appear here */}
-        </p>
+      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-center space-x-4">
+          <Dice3D
+            isRolling={isRolling}
+            values={animatedDice}
+            isMyTurn={isMyTurn}
+          />
+        </div>
+        {legalMoves && legalMoves.length > 0 && (
+          <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
+            <p className="text-sm text-center text-gray-600 dark:text-gray-300 mb-2">
+              {selectedTokenId
+                ? `Token selected. Choose a die to use:`
+                : 'Select a token to move.'}
+            </p>
+            <div className="flex justify-center space-x-2">
+              {animatedDice.map((die, index) => {
+                const isUsed = !legalMoves.some(
+                  (move) => move.diceIndex === index
+                );
+                return (
+                  <button
+                    key={index}
+                    onClick={() => onUseDie(selectedTokenId, index)}
+                    disabled={isUsed || selectedTokenId === null || !isMyTurn}
+                    className={`px-4 py-2 text-lg font-bold rounded-md transition-all ${
+                      isUsed
+                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 line-through'
+                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {die}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Action Buttons */}
       <div className="space-y-2">
-        {!gameStarted && players.length >= 2 && (
+        {!gameStarted && players?.length >= 2 && (
           <button
             onClick={startGame}
             className="w-full px-6 py-3 bg-green-600 dark:bg-green-700 text-white rounded-xl shadow-md hover:bg-green-700 dark:hover:bg-green-600 font-semibold transition-all transform hover:scale-[1.02]"
@@ -112,18 +144,28 @@ export default function Controls({
 
         <button
           onClick={rollDice}
-          disabled={isRolling || !isMyTurn || !gameStarted}
+          disabled={
+            isRolling ||
+            !isMyTurn ||
+            !gameStarted ||
+            (legalMoves && legalMoves.length > 0)
+          }
           className={`w-full px-6 py-3 rounded-xl shadow-md font-semibold transition-all transform ${
-            isRolling || !isMyTurn || !gameStarted
-              ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-              : "bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:scale-[1.02]"
+            isRolling ||
+            !isMyTurn ||
+            !gameStarted ||
+            (legalMoves && legalMoves.length > 0)
+              ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+              : 'bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:scale-[1.02]'
           }`}
         >
           {isRolling
-            ? "🎲 Rolling..."
+            ? '🎲 Rolling...'
             : !isMyTurn
-            ? `⏳ ${currentPlayer?.id}'s Turn`
-            : "🎲 Roll Dice"}
+            ? `⌛ ${currentPlayer?.id}'s Turn`
+            : legalMoves && legalMoves.length > 0
+            ? 'Use dice first'
+            : '🎲 Roll Dice'}
         </button>
 
         <div className="grid grid-cols-2 gap-2">
@@ -131,23 +173,21 @@ export default function Controls({
             onClick={toggleDebug}
             className="px-4 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-xl shadow-md hover:bg-gray-700 dark:hover:bg-gray-600 text-sm font-medium transition-all"
           >
-            {debug ? "🔍 Hide" : "🔍 Debug"}
+            {debug ? '🔍 Hide' : '🔍 Debug'}
           </button>
-
           <div className="px-4 py-2 bg-gray-700 dark:bg-gray-600 text-gray-400 dark:text-gray-500 rounded-xl text-sm font-medium text-center">
             Auto Turn
           </div>
         </div>
       </div>
 
-      {/* Players Count */}
       <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-600 dark:text-gray-400">
             Players in game:
           </span>
           <span className="font-semibold text-gray-800 dark:text-white">
-            {players.length}/4
+            {players?.length || 0}/4
           </span>
         </div>
         {!imageLoaded && (

@@ -7,74 +7,84 @@ import {
   advanceTurn,
   isPlayerTurn,
   attachPendingDice,
-} from "../rules.js";
-import { roomService } from "./roomService.js";
+  shouldAdvanceTurn,
+} from '../rules.js';
+import { roomService } from './roomService.js';
 
 export const gameService = {
   startGame(roomId) {
     return roomService.startGame(roomId);
   },
+
   rollDice(roomId, playerId) {
     const gameState = roomService.getGameState(roomId);
     if (!gameState || !gameState.gameStarted)
-      return { success: false, error: "Game not started" };
-    if (gameState.gameOver) return { success: false, error: "Game is over" };
+      return { success: false, error: 'Game not started' };
+    if (gameState.gameOver) return { success: false, error: 'Game is over' };
     if (!isPlayerTurn(gameState, playerId))
-      return { success: false, error: "Not your turn" };
+      return { success: false, error: 'Not your turn' };
+
+    // Don't allow re-rolling if dice are pending
+    if (gameState.pendingDice) {
+      return { success: false, error: 'Dice already rolled, make your move' };
+    }
 
     const dice = rollDice();
-    // Attach dice result to state so applyMove can validate usage later.
     attachPendingDice(gameState, dice);
-    const legalMoves = getLegalMoves(gameState, playerId, dice);
+    const legalMoves = getLegalMoves(gameState, playerId);
 
-    let autoAdvanced = false;
+    // If no legal moves, auto-advance turn
     if (legalMoves.length === 0) {
-      // No legal moves: advance turn and clear pending dice.
-      gameState.pendingDice = null;
       advanceTurn(gameState);
       roomService.updateGameState(roomId, gameState);
-      autoAdvanced = true;
-    } else {
-      // For now, auto-advance turn after showing dice (simplified Ludo - no move selection yet)
-      // In full implementation, player would select which piece to move from legalMoves
-      gameState.pendingDice = null;
-      advanceTurn(gameState);
-      roomService.updateGameState(roomId, gameState);
-      autoAdvanced = true;
+      return {
+        success: true,
+        dice,
+        legalMoves: [],
+        autoAdvanced: true,
+        gameState,
+        nextPlayer: gameState.players[gameState.currentPlayerIndex].id,
+      };
     }
+
+    // Save state with pending dice
+    roomService.updateGameState(roomId, gameState);
 
     return {
       success: true,
       dice,
       legalMoves,
-      autoAdvanced,
+      autoAdvanced: false,
       gameState,
-      nextPlayer: gameState.players[gameState.currentPlayerIndex].id,
     };
   },
-  moveToken(roomId, playerId, tokenId, newPosition) {
+
+  moveToken(roomId, playerId, tokenId, diceIndex) {
     const gameState = roomService.getGameState(roomId);
     if (!gameState || !gameState.gameStarted || gameState.gameOver)
-      return { success: false, error: "Invalid game state" };
+      return { success: false, error: 'Invalid game state' };
     if (!isPlayerTurn(gameState, playerId))
-      return { success: false, error: "Not your turn" };
+      return { success: false, error: 'Not your turn' };
 
-    const moveResult = applyMove(gameState, playerId, tokenId, newPosition);
+    const moveResult = applyMove(gameState, playerId, tokenId, diceIndex);
     if (!moveResult.success) return moveResult;
 
     const player = gameState.players.find((p) => p.id === playerId);
     let gameWon = false;
+
     if (checkWin(player)) {
       gameState.gameOver = true;
       gameState.winner = playerId;
       gameWon = true;
     }
 
-    if (!moveResult.bonusMove && !gameWon) {
+    // Check if turn should advance (all dice used or game won)
+    if ((shouldAdvanceTurn(gameState) && !moveResult.bonusMove) || gameWon) {
       advanceTurn(gameState);
     }
 
     roomService.updateGameState(roomId, gameState);
+
     return {
       success: true,
       ...moveResult,

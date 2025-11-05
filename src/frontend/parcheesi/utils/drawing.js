@@ -1,6 +1,7 @@
 // /drawing.js
 import {
   COLORS,
+  TOKEN_COLORS,
   GRID_SIZE,
   CORNER_SIZE,
   HOME_SIZE,
@@ -8,7 +9,7 @@ import {
   SAFE_CELLS,
   PLAYERS,
   PLAYER_POSITIONS,
-} from "./constants";
+} from '../config/constants';
 
 // Utility functions
 function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
@@ -33,9 +34,9 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
   ctx.lineTo(cx, cy - outerRadius);
   ctx.closePath();
   ctx.lineWidth = 1;
-  ctx.strokeStyle = "black";
+  ctx.strokeStyle = 'black';
   ctx.stroke();
-  ctx.fillStyle = "gold";
+  ctx.fillStyle = 'gold';
   ctx.fill();
 }
 
@@ -46,7 +47,7 @@ const BoardComponents = {
     ctx.fillRect(x, y, size, size);
 
     const circleRadius = 2 * cellSize;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.beginPath();
     ctx.arc(x + size / 2, y + size / 2, circleRadius, 0, Math.PI * 2);
     ctx.fill();
@@ -67,7 +68,7 @@ const BoardComponents = {
     ];
 
     ctx.fillStyle = color;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"; // Border color
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Border color
     ctx.lineWidth = 2; // Border width
 
     positions.forEach((pos) => {
@@ -79,7 +80,7 @@ const BoardComponents = {
   },
 
   drawHomeArea(ctx, homeStartX, homeStartY, cellSize) {
-    ctx.fillStyle = "rgba(128, 128, 128, 0.5)";
+    ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
     ctx.fillRect(
       homeStartX * cellSize,
       homeStartY * cellSize,
@@ -95,7 +96,7 @@ const BoardComponents = {
     ctx.fillStyle = COLORS[direction];
 
     switch (direction) {
-      case "red": // Upward
+      case 'red': // Upward
         ctx.fillRect(
           (homeStartX + 1) * cellSize,
           (homeStartY - 7) * cellSize,
@@ -103,7 +104,7 @@ const BoardComponents = {
           tailLength
         );
         break;
-      case "blue": // Rightward
+      case 'blue': // Rightward
         ctx.fillRect(
           (homeStartX + HOME_SIZE) * cellSize,
           (homeStartY + 1) * cellSize,
@@ -111,7 +112,7 @@ const BoardComponents = {
           tailWidth
         );
         break;
-      case "yellow": // Downward
+      case 'yellow': // Downward
         ctx.fillRect(
           (homeStartX + 1) * cellSize,
           (homeStartY + HOME_SIZE) * cellSize,
@@ -119,7 +120,7 @@ const BoardComponents = {
           tailLength
         );
         break;
-      case "green": // Leftward
+      case 'green': // Leftward
         ctx.fillRect(
           (homeStartX - 7) * cellSize,
           (homeStartY + 1) * cellSize,
@@ -202,11 +203,11 @@ const BoardComponents = {
 
     // Draw background
     const cellNum = parseInt(cellNumber);
-    ctx.fillStyle = startCellColors[cellNum] || "rgba(255, 255, 255, 0)";
+    ctx.fillStyle = startCellColors[cellNum] || 'rgba(255, 255, 255, 0)';
     ctx.fillRect(x, y, width, height);
 
     // Draw border
-    ctx.strokeStyle = "#333";
+    ctx.strokeStyle = '#333';
     ctx.lineWidth = 0.5;
     ctx.beginPath();
 
@@ -291,10 +292,10 @@ const BoardComponents = {
     if (SAFE_CELLS.includes(cellNum)) {
       drawStar(ctx, 0, 0, 5, cellSize / 4, cellSize / 8);
     } else {
-      ctx.fillStyle = "#333";
+      ctx.fillStyle = '#333';
       ctx.font = `bold ${cellSize / 3}px Arial`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(cellNumber, 0, 0);
     }
     ctx.restore();
@@ -311,7 +312,7 @@ const BoardComponents = {
       ctx.stroke();
     };
 
-    ctx.strokeStyle = "#333";
+    ctx.strokeStyle = '#333';
     ctx.lineWidth = 0.5;
 
     drawDiagonal(252, { x: 0, y: 0 }, { x: 1, y: 1 });
@@ -321,7 +322,7 @@ const BoardComponents = {
   },
 
   drawDebugGrid(ctx, cellSize) {
-    ctx.strokeStyle = "#aaa";
+    ctx.strokeStyle = '#aaa';
     for (let i = 0; i < GRID_SIZE; i++) {
       for (let j = 0; j < GRID_SIZE; j++) {
         ctx.strokeRect(j * cellSize, i * cellSize, cellSize, cellSize);
@@ -330,10 +331,10 @@ const BoardComponents = {
   },
 
   drawDebugCellNumbers(ctx, path, cellSize, rotation) {
-    ctx.fillStyle = "#666";
+    ctx.fillStyle = '#666';
     ctx.font = `${cellSize / 5}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
     for (let i = 0; i < path.length; i++) {
       const cell = path[i];
@@ -359,8 +360,7 @@ const BoardComponents = {
     // Make the current player's piece slightly larger and with a different border
     const baseRadius = cellSize / 3;
     const borderWidth = isCurrentPlayer ? 2 : 2;
-    // const borderColor = isCurrentPlayer ? "black" : "black";
-    const borderColor = "rgba(0, 0, 0, 1)";
+    const borderColor = 'rgba(0, 0, 0, 1)';
 
     // Add breathing effect for current player
     let radius = baseRadius;
@@ -370,7 +370,34 @@ const BoardComponents = {
       radius = baseRadius * breathScale;
     }
 
-    ctx.fillStyle = COLORS[pieceColor];
+    // Highlight tokens in home base with pulsing glow
+    const isInHome = piece.inHome === true;
+    if (isInHome) {
+      const pulseScale = 1 + Math.sin(animationFrame * 0.08) * 0.2;
+      const glowRadius = radius * 1.5 * pulseScale;
+
+      // Draw outer glow for home tokens
+      ctx.save();
+      ctx.globalAlpha = 0.4;
+      const gradient = ctx.createRadialGradient(
+        piece.px,
+        piece.py,
+        radius,
+        piece.px,
+        piece.py,
+        glowRadius
+      );
+      gradient.addColorStop(0, TOKEN_COLORS[pieceColor] || COLORS[pieceColor]);
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(piece.px, piece.py, glowRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Use dark token colors (fallback to board color if missing)
+    ctx.fillStyle = TOKEN_COLORS[pieceColor] || COLORS[pieceColor];
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderWidth;
     ctx.beginPath();
@@ -378,11 +405,20 @@ const BoardComponents = {
     ctx.fill();
     ctx.stroke();
 
+    // Add highlight ring for home tokens
+    if (isInHome) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(piece.px, piece.py, radius + 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Add a subtle glow effect for current player
     if (isCurrentPlayer) {
       ctx.save();
-      // ctx.globalAlpha = 0.3;
-      // ctx.fillStyle = "#FFD700";
       ctx.beginPath();
       ctx.arc(piece.px, piece.py, radius * 1.3, 0, Math.PI * 2);
       ctx.fill();
@@ -391,10 +427,10 @@ const BoardComponents = {
   },
 
   drawPlayerName(ctx, x, y, playerName, cellSize) {
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = '#000';
     ctx.font = `bold ${cellSize / 4}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText(playerName, x, y);
   },
 
@@ -417,15 +453,15 @@ const BoardComponents = {
 
   drawInactivePlayerOverlay(ctx, x, y, size, cellSize) {
     // Draw semi-transparent overlay over inactive player homes
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(x, y, size, size);
 
     // Draw "Not Playing" text
-    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.font = `bold ${cellSize * 0.8}px Arial`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("✕", x + size / 2, y + size / 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✕', x + size / 2, y + size / 2);
   },
 };
 
@@ -441,6 +477,7 @@ export function drawBoard(
   imageLoaded,
   avatarImageRef,
   players = [],
+  selectedTokenId = null,
   animationFrame = 0
 ) {
   const size = canvas.width / window.devicePixelRatio;
@@ -456,13 +493,13 @@ export function drawBoard(
 
   let rotation = 0;
   switch (pieceColor) {
-    case "red":
+    case 'red':
       rotation = Math.PI;
       break;
-    case "blue":
+    case 'blue':
       rotation = Math.PI / 2;
       break;
-    case "green":
+    case 'green':
       rotation = -Math.PI / 2;
       break;
   }
@@ -480,13 +517,13 @@ export function drawBoard(
   const cornerPixelSize = CORNER_SIZE * cellSize;
 
   // Draw corners and their circles using player constants
-  const corners = Object.keys(PLAYER_POSITIONS).map((playerId) => {
-    const position = PLAYER_POSITIONS[playerId];
+  const corners = Object.keys(PLAYER_POSITIONS).map((color) => {
+    const position = PLAYER_POSITIONS[color];
     return {
       x: position.x * cellSize,
       y: position.y * cellSize,
-      color: COLORS[PLAYERS[playerId].color],
-      playerId: playerId,
+      color: COLORS[color],
+      key: color,
     };
   });
 
@@ -523,7 +560,7 @@ export function drawBoard(
   BoardComponents.drawHomeArea(ctx, homeStartX, homeStartY, cellSize);
 
   // Draw colored tails
-  ["red", "blue", "yellow", "green"].forEach((color) => {
+  ['red', 'blue', 'yellow', 'green'].forEach((color) => {
     BoardComponents.drawColoredTail(
       ctx,
       homeStartX,
@@ -572,6 +609,15 @@ export function drawBoard(
         isCurrentPlayer,
         animationFrame
       );
+      if (selectedTokenId && piece.tokenId === selectedTokenId) {
+        ctx.save();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255,255,0,0.85)';
+        ctx.beginPath();
+        ctx.arc(piece.px, piece.py, cellSize / 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     });
   }
 

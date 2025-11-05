@@ -1,9 +1,9 @@
 // /components/Game.js
-"use client";
+'use client';
 
-import { useGame } from "../hooks/useGame";
-import Controls from "./Controls";
-import { useEffect } from "react";
+import { useGame } from '../hooks/useGame';
+import Controls from './Controls';
+import { useEffect } from 'react';
 
 export default function Game({ roomId, playerId }) {
   const {
@@ -20,11 +20,15 @@ export default function Game({ roomId, playerId }) {
     toggleDebug,
     changeColor,
     startGame,
+    animatedDice,
+    legalMoves,
+    onUseDie,
+    selectedTokenId,
   } = useGame(roomId, playerId);
 
   // Debug logging to see what's happening
   useEffect(() => {
-    console.log("[Game Component] State:", {
+    console.log('[Game Component] State:', {
       roomId,
       playerId,
       gameStarted,
@@ -89,6 +93,10 @@ export default function Game({ roomId, playerId }) {
         toggleDebug={toggleDebug}
         changeColor={changeColor}
         startGame={startGame}
+        animatedDice={animatedDice}
+        legalMoves={legalMoves}
+        onUseDie={onUseDie}
+        selectedTokenId={selectedTokenId}
       />
     </div>
   );
