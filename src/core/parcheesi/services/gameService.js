@@ -29,7 +29,6 @@ export const gameService = {
 
     attachPendingDice(gameState, diceArray);
 
-    console.log("SERVICE DICESERVICE DICESERVICE DICESERVICE DICESERVICE DICESERVICE DICESERVICE DICE: ", diceArray);
     const legalMoves = getLegalMoves(gameState, playerId, diceArray);
 
     let autoAdvanced = false;
@@ -54,11 +53,60 @@ export const gameService = {
     };
   },
   moveToken(roomId, playerId, tokenId, newPosition) {
+    console.log(`[gameService] Starting moveToken for player ${playerId}, token ${tokenId}, position ${newPosition}`);
+    
     const gameState = roomService.getGameState(roomId);
-    if (!gameState || !gameState.gameStarted || gameState.gameOver)
-      return { success: false, error: "Invalid game state" };
-    if (!isPlayerTurn(gameState, playerId))
-      return { success: false, error: "Not your turn" };
+    
+    // Log full game state for debugging
+    console.log('[gameService] Current game state:', {
+      roomId,
+      gameStarted: gameState?.gameStarted,
+      gameOver: gameState?.gameOver,
+      currentPlayerIndex: gameState?.currentPlayerIndex,
+      players: gameState?.players?.map(p => ({
+        id: p.id,
+        color: p.color,
+        tokens: p.tokens
+      })),
+      pendingDice: gameState?.pendingDice
+    });
+    
+    if (!gameState || !gameState.gameStarted || gameState.gameOver) {
+      const errorMsg = !gameState ? 'No game state found' : 
+                     !gameState.gameStarted ? 'Game not started' : 'Game over';
+      console.log(`[gameService] Invalid game state: ${errorMsg}`);
+      return { 
+        success: false, 
+        error: `Invalid game state: ${errorMsg}`,
+        isTurnError: false
+      };
+    }
+    
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    const isTurn = isPlayerTurn(gameState, playerId);
+    
+    console.log(`[gameService] Player ${playerId} turn check: ${isTurn ? 'YES' : 'NO'}`);
+    console.log(`[gameService] Current player: ${currentPlayer?.id || 'none'}, Player index: ${gameState.currentPlayerIndex}`);
+    
+    // Check if it's the player's turn
+    if (!isTurn) {
+      const currentPlayerId = currentPlayer?.id || 'none';
+      console.log(`[gameService] Move rejected - Not player's turn. Current player: ${currentPlayerId}, Attempted by: ${playerId}`);
+      
+      // Log all players for debugging
+      console.log('[gameService] All players:', gameState.players.map((p, idx) => ({
+        index: idx,
+        id: p.id,
+        isCurrent: idx === gameState.currentPlayerIndex
+      })));
+      
+      return { 
+        success: false, 
+        error: `Not your turn. Current player: ${currentPlayerId}`,
+        currentPlayer: currentPlayerId,
+        isTurnError: true
+      };
+    }
 
     const moveResult = applyMove(gameState, playerId, tokenId, newPosition);
     if (!moveResult.success) return moveResult;

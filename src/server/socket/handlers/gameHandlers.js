@@ -16,40 +16,48 @@ export function registerGameHandlers(io, socket) {
         });
       }
 
-      const result = roomService.joinRoom(
-        roomId,
-        socket.id,
-        playerId,
-        requiredPlayers
-      );
-      if (!result.success) {
+      // First join the room without checking game state
+      const joinResult = roomService.joinRoom(roomId, socket.id, playerId, requiredPlayers);
+      if (!joinResult.success) {
         return socket.emit("game:error", {
-          message: result.error,
+          message: joinResult.error,
           event: "game:join",
         });
+      }
+
+      // Get the current game state if the game has started
+      const gameState = roomService.getGameState(roomId);
+      if (gameState?.gameStarted) {
+        // If it's not the player's turn, don't prevent them from joining,
+        // but do let them know it's not their turn
+        if (gameState.currentPlayerIndex !== undefined && 
+            gameState.players[gameState.currentPlayerIndex]?.id !== playerId) {
+          console.log(`[DEBUG][game:join] Player ${playerId} joining but not their turn`);
+          // Don't return an error, just continue with the join process
+        }
       }
 
       socket.join(roomId);
       socket.emit("game:joined", {
         roomId,
         playerId,
-        playerCount: result.playerCount,
-        requiredPlayers: result.requiredPlayers,
-        players: result.players,
+        playerCount: joinResult.playerCount,
+        requiredPlayers: joinResult.requiredPlayers,
+        players: joinResult.players,
       });
       io.to(roomId).emit("room:update", {
         roomId,
-        playerCount: result.playerCount,
-        requiredPlayers: result.requiredPlayers,
-        players: result.players,
+        playerCount: joinResult.playerCount,
+        requiredPlayers: joinResult.requiredPlayers,
+        players: joinResult.players,
       });
       logger.info("Player joined successfully", { roomId, playerId });
 
       // Auto-start game when all players joined
-      if (result.shouldAutoStart) {
+      if (joinResult.shouldAutoStart) {
         logger.info("Auto-starting game", {
           roomId,
-          playerCount: result.playerCount,
+          playerCount: joinResult.playerCount,
         });
         setTimeout(() => {
           const startResult = gameService.startGame(roomId);
@@ -175,49 +183,80 @@ socket.on("roll:dice", () => {
 
   // move:token
   socket.on("move:token", (payload = {}) => {
-    console.log("[DEBUG][move:token]", {
-      socketId: socket.id,
-      payload,
-    });
-    try {
-      const { tokenId, newPosition } = payload;
-      const roomId = roomService.getRoomIdBySocket(socket.id);
-      const playerId = roomService.getPlayerIdBySocket(socket.id);
-      console.log("[DEBUG][move:token]", {
-        socketId: socket.id,
-        playerId,
-        roomId,
-        tokenId,
-        newPosition,
+    console.log("\n[DEBUG][move:token] ===== NEW MOVE REQUEST =====");
+    console.log("[DEBUG][move:token] Socket:", socket.id);
+    console.log("[DEBUG][move:token] Payload:", JSON.stringify(payload, null, 2));
+    
+    const { tokenId, newPosition } = payload;
+    const roomId = roomService.getRoomIdBySocket(socket.id);
+    // const playerId = roomService.getPlayerIdBySocket(socket.id);
+    const playerId = tokenId.split("-")[0];
+
+    if (!tokenId || !newPosition) {
+      return
+    }
+      
+    
+    // Basic validation
+    if (!roomId || !playerId) {
+      const errorMsg = `[DEBUG][move:token] Invalid move - not in a game. Room: ${roomId || 'none'}, Player: ${playerId || 'none'}`;
+      console.log(errorMsg);
+      return socket.emit("game:error", {
+        message: "Not in a game",
+        event: "move:token",
+        isTurnError: false,
+        details: { roomId, playerId }
       });
-      if (!roomId || !playerId)
-        return socket.emit("game:error", {
-          message: "Not in a game",
-          event: "move:token",
-        });
-      const result = gameService.moveToken(
-        roomId,
-        playerId,
-        tokenId,
-        newPosition
-      );
-      if (!result.success)
+    }
+    
+    // Get current game state for logging
+    const gameState = roomService.getGameState(roomId);
+    console.log(`[DEBUG][move:token] Game state for room ${roomId}:`, {
+      currentPlayerIndex: gameState?.currentPlayerIndex,
+      currentPlayer: gameState?.players?.[gameState?.currentPlayerIndex]?.id,
+      gameStarted: gameState?.gameStarted,
+      gameOver: gameState?.gameOver,
+      playerCount: gameState?.players?.length
+    });
+    
+    try {
+      // Process the move
+      const gameState = roomService.getGameState(roomId);
+
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+      if (currentPlayer.id !== playerId) {
+        console.log(`[DEBUG][move:token] Move rejected - Not player's turn. Current player: ${currentPlayer.id}, Attempted by: ${playerId}`);
+        return;
+      }
+      
+      const result = gameService.moveToken(roomId, playerId, tokenId, newPosition);
+      
+      // Handle move failure
+      if (!result.success) {
+        console.log(`[DEBUG][move:token] Move failed for player ${playerId}:`, result.error);
+        // Only send error to the player who made the move
         return socket.emit("game:error", {
           message: result.error,
           event: "move:token",
+          isTurnError: result.isTurnError,
+          currentPlayer: result.currentPlayer
         });
-      console.log("[DEBUG][move:token]", {
-        socketId: socket.id,
+      }
+      
+      // Log successful move
+      console.log(`[DEBUG][move:token] Move successful`, {
         playerId,
-        roomId,
         tokenId,
-        newPosition,
-        legalMoves: result.legalMoves,
-        autoAdvanced: result.autoAdvanced,
+        from: result.from,
+        to: result.to,
         nextPlayer: result.nextPlayer,
+        legalMoves: result.legalMoves,
+        advanced: result.advanced,
+        gameWon: result.gameWon
       });
 
-      io.to(roomId).emit("move:result", {
+      // Send the move result to the player who made the move
+      socket.emit("move:result", {
         playerId,
         tokenId,
         from: result.from,
@@ -226,6 +265,21 @@ socket.on("roll:dice", () => {
         bonusMove: result.bonusMove,
         advanced: result.advanced,
         legalMoves: result.legalMoves,
+        gameWon: result.gameWon,
+        nextPlayer: result.nextPlayer
+      });
+      
+      // Send an opponent move event to all other players in the room
+      socket.to(roomId).emit("opponent:move", {
+        playerId,
+        tokenId,
+        from: result.from,
+        to: result.to,
+        captured: result.captured,
+        bonusMove: result.bonusMove,
+        advanced: result.advanced,
+        gameWon: result.gameWon,
+        nextPlayer: result.nextPlayer
       });
 
       if (result.gameWon) {

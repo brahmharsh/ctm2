@@ -16,12 +16,24 @@ import {
  * @param {object} gameCellsRef - Ref containing cell mapping
  * @param {object} isResizingRef - Ref tracking if board is being resized
  */
+/**
+ * Handles Ludo piece state, positions, and animation logic.
+ *
+ * @param {Array} players - Array of player objects { id, color, startCell }
+ * @param {boolean} gameStarted - Whether the game has started
+ * @param {object} pathRef - Ref containing path coordinates
+ * @param {object} gameCellsRef - Ref containing cell mapping
+ * @param {object} isResizingRef - Ref tracking if board is being resized
+ * @param {string} currentPlayerId - ID of the current player
+ * @param {Array} [initialLegalMoves=[]] - Initial legal moves for the current turn
+ */
 export function usePieces(
   players,
   gameStarted,
   pathRef,
   gameCellsRef,
   isResizingRef,
+  currentPlayerId,
   initialLegalMoves = []
 ) {
   const [pieces, setPieces] = useState([]);
@@ -55,22 +67,38 @@ useEffect(() => {
 const handlePieceClick = useCallback(
   (pieceId) => {
     console.log("[usePieces] Piece clicked:", pieceId);
-
-    if (!clickEnabled) {
-      console.log("[usePieces] ❌ Click ignored — not your turn or dice not rolled yet");
+    
+    // Early return if no piece ID
+    if (!pieceId) {
+      console.log("[usePieces] ❌ Click ignored — no piece ID provided");
       return;
     }
+
+    // Extract player ID from piece ID (format: player_123-0)
+    const piecePlayerId = pieceId.split('-')[0];
+    console.log(`[usePieces] Current player: ${currentPlayerId}, Piece owner: ${piecePlayerId}`);
+
+    // Check if it's the current player's turn
+    if (piecePlayerId !== currentPlayerId) {
+      console.log(`[usePieces] ❌ Click ignored — it's not player ${piecePlayerId}'s turn`);
+      return;
+    }
+
+    // Check if clicks are enabled
+    // if (!clickEnabled) {
+    //   console.log("[usePieces] ❌ Click ignored — not your turn or dice not rolled yet");
+    //   return;
+    // }
 
     if (!legalMoves || legalMoves.length === 0) {
       console.log("[usePieces] ⚠️ No legal moves available yet");
       return;
     }
 
-    console.log("LEGACY MOVES: ", legalMoves);
+    console.log("LEGAL MOVES: ", legalMoves);
 
     const pieceIndex = parseInt(pieceId.split("-").pop(), 10);
     const tokenId = pieceId.replace(/-\d$/, `-t${pieceIndex + 1}`);
-
 
     // Find legal moves for this piece (multiple when two dice)
     const pieceMoves = legalMoves.filter((m) => m.tokenId === tokenId);

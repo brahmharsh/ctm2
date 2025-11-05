@@ -30,11 +30,27 @@ export function initSocket() {
 export function onMoveResult(cb) {
   const s = getSocket();
   if (!s) return () => {};
-  s.on("move:result", (d) => {
-    console.log("[Socket] Move result:", d);
+  
+  const handler = (d) => {
+    console.log("[Socket] Move result for current player:", d);
     cb && cb(d);
-  });
-  return () => s.off("move:result", cb);
+  };
+  
+  s.on("move:result", handler);
+  return () => s.off("move:result", handler);
+}
+
+export function onOpponentMove(cb) {
+  const s = getSocket();
+  if (!s) return () => {};
+  
+  const handler = (d) => {
+    console.log("[Socket] Opponent move result:", d);
+    cb && cb(d);
+  };
+  
+  s.on("opponent:move", handler);
+  return () => s.off("opponent:move", handler);
 }
 
 export function getSocket() {
@@ -77,30 +93,72 @@ export function rollDice(cb) {
   const s = getSocket();
   console.log("[Frontend] Using socket ID:", s.id);
   if (!s) return console.error("[Socket] Not connected");
-  s.emit("roll:dice");
-  s.once("roll:result", (data) => {
-    console.log("[Socket] Dice rolled:", data.dice); // <- now an array [d1, d2]
+  
+  // Remove any existing listeners to prevent duplicates
+  s.off("roll:result");
+  s.off("game:error");
+  
+  // Set up the event listeners first
+  const onRollResult = (data) => {
+    console.log("[Socket] Dice rolled:", data.dice);
+    // Clean up the listeners
+    s.off("roll:result", onRollResult);
+    s.off("game:error", onError);
     cb && cb(null, data);
-  });
-  s.once("game:error", (error) => {
+  };
+  
+  const onError = (error) => {
     console.error("[Socket] Roll failed:", error);
+    // Clean up the listeners
+    s.off("roll:result", onRollResult);
+    s.off("game:error", onError);
     cb && cb(error, null);
-  });
+  };
+  
+  // Register the event listeners
+  s.once("roll:result", onRollResult);
+  s.once("game:error", onError);
+  
+  // Emit the roll event
+  s.emit("roll:dice");
 }
 export function moveToken(tokenId, newPosition, cb) {
   const s = getSocket();
-  if (!s) return console.error("[Socket] Not connected");
-  console.log("[Frontend] Using socket ID:", tokenId, newPosition, cb);
-  s.emit("move:token", { tokenId, newPosition });
-  console.log("[Frontend] Move token emitted");
-  s.once("move:result", (data) => {
-    console.log("[Socket] Token moved:", data);
+  if (!s) {
+    console.error("[Socket] Not connected");
+    return cb && cb(new Error("Not connected to server"), null);
+  }
+  
+  console.log("[Frontend] Move token request:", { tokenId, newPosition });
+  
+  // Remove any existing move listeners to prevent duplicates
+  s.off("move:result");
+  s.off("game:error");
+  
+  // Set up the move result handler
+  const onMoveResult = (data) => {
+    console.log("[Socket] Move successful:", data);
+    // Clean up the listeners
+    s.off("move:result", onMoveResult);
+    s.off("game:error", onMoveError);
     cb && cb(null, data);
-  });
-  s.once("game:error", (error) => {
+  };
+  
+  // Set up the error handler
+  const onMoveError = (error) => {
     console.error("[Socket] Move failed:", error);
+    // Clean up the listeners
+    s.off("move:result", onMoveResult);
+    s.off("game:error", onMoveError);
     cb && cb(error, null);
-  });
+  };
+  
+  // Register the event listeners
+  s.once("move:result", onMoveResult);
+  s.once("game:error", onMoveError);
+  
+  // Emit the move event
+  s.emit("move:token", { tokenId, newPosition });
 }
 export function requestGameState() {
   const s = getSocket();

@@ -48,7 +48,19 @@ export function rollDice() {
 
 // Determine if it's the player's turn
 export function isPlayerTurn(gameState, playerId) {
-  return gameState.players[gameState.currentPlayerIndex].id === playerId;
+  const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+  const isTurn = currentPlayer && currentPlayer.id === playerId;
+  
+  // Debug logging
+  if (!isTurn) {
+    console.log(`[isPlayerTurn] Player ${playerId} is NOT the current player. Current player: ${currentPlayer?.id || 'none'}`);
+    console.log(`[isPlayerTurn] Current player index: ${gameState.currentPlayerIndex}, Total players: ${gameState.players.length}`);
+    console.log(`[isPlayerTurn] Game started: ${gameState.gameStarted}, Game over: ${gameState.gameOver}`);
+  } else {
+    console.log(`[isPlayerTurn] Player ${playerId} is the current player`);
+  }
+  
+  return isTurn;
 }
 
 // Produce list of legal moves (token ids) for player given dice
@@ -145,14 +157,32 @@ export function applyMove(gameState, playerId, tokenId, newPosition) {
   if (usedDie === 6 && !gameState.gameOver) {
     bonusMove = true;
   }
-
+  console.log("usedDieusedDieusedDieusedDieusedDie", usedDie, dice);
   // Update pending dice after consuming the used die
   if (Array.isArray(dice)) {
     const arr = dice.map((d) => parseInt(d, 10) || 0);
     const idx = arr.indexOf(usedDie);
-    if (idx > -1) arr.splice(idx, 1);
+
+      if (idx > -1) arr.splice(idx, 1);
     gameState.pendingDice = arr.length ? arr : null;
+
+    // if (idx > -1) {
+    //   // Remove the used die
+    //   arr.splice(idx, 1);
+      
+    //   // If there are still dice left and we didn't get a bonus move, keep the remaining dice
+    //   // If we got a bonus move, we'll roll again, so clear the pending dice
+    //   if (arr.length > 0 && !bonusMove) {
+    //     gameState.pendingDice = arr;
+    //   } else {
+    //     gameState.pendingDice = null;
+    //   }
+    // } else {
+    //   // If we couldn't find the used die (shouldn't happen), clear the dice
+    //   gameState.pendingDice = null;
+    // }
   } else {
+    // Single die, clear it after use
     gameState.pendingDice = null;
   }
   gameState.lastActionAt = Date.now();
@@ -160,7 +190,8 @@ export function applyMove(gameState, playerId, tokenId, newPosition) {
   return {
     success: true,
     tokenId,
-    newPosition,
+    from: token.position - usedDie, // Calculate the original position before the move
+    to: newPosition,
     finished: token.finished,
     bonusMove,
   };

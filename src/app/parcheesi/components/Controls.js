@@ -14,22 +14,27 @@ export default function Controls({
   debug,
   toggleDebug,
   imageLoaded,
+  canRoll,
+  legalMoves,
 }) {
 
   console.log("animatedDiceanimatedDiceanimatedDiceanimatedDiceanimatedDice: ", animatedDice);
-  const currentPlayerIndex = players.findIndex((p) => p.id === playerId);
-  const playerNumber = currentPlayerIndex >= 0 ? currentPlayerIndex + 1 : 0;
-  const isMyTurn = currentPlayer && currentPlayer.id === playerId;
+  const isCurrentPlayer = currentPlayer?.id === playerId;
+  // Calculate player number (1-based index)
+  const playerNumber = players?.findIndex(p => p.id === playerId) + 1 || 0;
+  // Use the canRoll prop passed from the parent component (which comes from useDice)
+  const canRollProp = isCurrentPlayer && canRoll && !isRolling && (!gameStarted || legalMoves.length === 0);
+  const canStartGame = !gameStarted && isCurrentPlayer;
 
   const safeDice = Array.isArray(animatedDice) ? animatedDice : [1, 1];
 
-    console.log("[Controls] Render:", {
-    safeDice,
-    animatedDice,
-    isRolling,
-    currentPlayer: currentPlayer?.id,
-    playerId,
-  });
+  //   console.log("[Controls] Render:", {
+  //   safeDice,
+  //   animatedDice,
+  //   isRolling,
+  //   currentPlayer: currentPlayer?.id,
+  //   playerId,
+  // });
 
   return (
     <div className="flex flex-col w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 space-y-4">
@@ -66,7 +71,7 @@ export default function Controls({
       {/* Current Turn */}
       <div
         className={`rounded-xl p-4 border-2 transition-all ${
-          isMyTurn
+          isCurrentPlayer
             ? "bg-green-50 dark:bg-green-900/30 border-green-500 dark:border-green-400"
             : "bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-600"
         }`}
@@ -74,10 +79,10 @@ export default function Controls({
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Turn:</span>
           <div className="flex items-center space-x-2">
-            {isMyTurn && <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
+            {isCurrentPlayer && <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
             <span
               className={`font-semibold capitalize ${
-                isMyTurn
+                isCurrentPlayer
                   ? "text-green-700 dark:text-green-400"
                   : "text-gray-700 dark:text-gray-300"
               }`}
@@ -86,7 +91,7 @@ export default function Controls({
             </span>
           </div>
         </div>
-        {isMyTurn && <div className="mt-2 text-xs font-semibold text-green-600 dark:text-green-400">🎯 It's your turn!</div>}
+        {isCurrentPlayer && <div className="mt-2 text-xs font-semibold text-green-600 dark:text-green-400">🎯 It's your turn!</div>}
       </div>
 
       {/* Dice */}
@@ -99,9 +104,9 @@ export default function Controls({
 
         <button
           onClick={rollDice}
-          disabled={!isMyTurn || isRolling || !gameStarted}
+          disabled={!isCurrentPlayer || isRolling || !gameStarted}
           className={`w-full px-6 py-3 rounded-xl shadow-md font-semibold transition-all transform ${
-            !isMyTurn || isRolling || !gameStarted
+            !isCurrentPlayer || isRolling || !gameStarted
               ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               : "bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-500 dark:hover:bg-indigo-600 active:scale-95"
           }`}
@@ -110,7 +115,7 @@ export default function Controls({
             ? "🎲 Rolling..."
             : !gameStarted
             ? "Waiting..."
-            : !isMyTurn
+            : !isCurrentPlayer
             ? "⏳ Opponent's turn"
             : "Roll Dice"}
         </button>

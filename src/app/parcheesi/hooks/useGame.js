@@ -7,7 +7,7 @@ import { usePieces } from "./usePieces";
 import { useDice } from "./useDice";
 import { usePlayerControls } from "./usePlayerControls";
 import { useAvatar } from "./useAvatar";
-import { onMoveResult, moveToken } from "@/client/ludo/client";
+import { onMoveResult, onOpponentMove, moveToken, getSocket } from "@/client/ludo/client";
 
 export function useGame(initialRoomId, initialPlayerId) {
   const [debug, setDebug] = useState(false);
@@ -59,7 +59,15 @@ export function useGame(initialRoomId, initialPlayerId) {
     setClickEnabled,
     setPiecesLegalMoves,
     handlePieceClick,
-  } = usePieces(players, gameStarted, pathRef, gameCellsRef, isResizingRef, legalMoves);
+  } = usePieces(
+    players, 
+    gameStarted, 
+    pathRef, 
+    gameCellsRef, 
+    isResizingRef, 
+    currentPlayer?.id, // Pass current player ID
+    legalMoves
+  );
 
   // ✅ After we have the real piecesRef, ensure board draws correct pieces by updating draw loop deps via re-render.
   // No extra code needed; useBoard reads piecesRef.current dynamically on each frame.
@@ -85,42 +93,202 @@ export function useGame(initialRoomId, initialPlayerId) {
     };
   }, [onLocalMoveRef]);
 
-  // ✅ Subscribe to server move results
+  // Get the socket instance
+  const socket = getSocket();
+  
+  // Handle move results from the server
   useEffect(() => {
-    const unsubscribe = onMoveResult((data) => {
-      const { playerId: mover, tokenId, from, to, legalMoves: nextLegal, advanced } = data || {};
-      if (!tokenId) return;
+    if (!socket) {
+      console.error('[useGame] No socket connection available');
+      return;
+    }
 
-      if (mover && mover === playerId) {
-        // Our own move just completed on server
-        if (!advanced && Array.isArray(nextLegal)) {
-          setPiecesLegalMoves(nextLegal);
-        } else {
-          setPiecesLegalMoves([]);
-        }
+    const handleMove = (data, isOpponentMove = false) => {
+      if (!data) {
+        console.error('[useGame] Received empty move data');
         return;
       }
 
-      // Opponent move: animate by step delta on our board path
-      const delta = (typeof to === 'number' && typeof from === 'number') ? (to - from) : 0;
-      if (delta !== 0) {
+      const { playerId: mover, tokenId, from, to, legalMoves: nextLegal, advanced, error, gameState } = data;
+      
+      // Log the received move data for debugging
+      console.log(`[useGame] Processing ${isOpponentMove ? 'opponent' : 'current player'} move:`, {
+        mover,
+        currentPlayer: playerId,
+        isCurrentPlayer: !isOpponentMove && (mover === playerId),
+        tokenId,
+        from,
+        to,
+        hasLegalMoves: Array.isArray(nextLegal) && nextLegal.length > 0,
+        gameState: gameState ? 'received' : 'missing'
+      });
+      
+      // If there's an error in the move result, log it and return early
+      if (error) {
+        console.log('[useGame] Move result contains error:', error);
+        return;
+      }
+      
+      if (!tokenId) {
+        console.error('[useGame] Missing tokenId in move data:', data);
+        return;
+      }
+
+      // Map server tokenId (playerId-tN) to local pieceId (playerId-(N-1))
+      let pieceId = tokenId;
+      const m = /^(.+)-t(\d+)$/.exec(tokenId);
+      if (m) {
+        const base = m[1];
+        const idx = parseInt(m[2], 10) - 1; // Convert to 0-based index
+        pieceId = `${base}-${idx}`;
+      }
+
+      const hasValidMove = typeof from === 'number' && typeof to === 'number';
+      const delta = hasValidMove ? (to - from) : 0;
+
+      console.log(`[useGame] Processing ${isOpponentMove ? 'opponent' : 'player'} move:`, {
+        originalTokenId: tokenId,
+        mappedPieceId: pieceId,
+        from,
+        to,
+        delta,
+        hasValidMove,
+        moveFunction: moveToIndexRef.current ? 'moveToIndexRef' : moveTokenToRef.current ? 'moveTokenToRef' : 'none'
+      });
+
+      // Handle the move animation
+      if (hasValidMove) {
+        if (moveToIndexRef.current) {
+          console.log(`[useGame] Animating ${isOpponentMove ? 'opponent' : 'player'} piece ${pieceId} by delta:`, delta);
+          moveToIndexRef.current(pieceId, delta);
+        } else if (moveTokenToRef.current) {
+          console.log(`[useGame] Moving ${isOpponentMove ? 'opponent' : 'player'} piece ${pieceId} to position:`, to);
+          moveTokenToRef.current(pieceId, to);
+        }
+      }
+
+      // Update legal moves and game state
+      if (mover === playerId) {
+        // Our own move just completed on server
+        if (!advanced && Array.isArray(nextLegal) && nextLegal.length > 0) {
+          console.log('[useGame] Setting legal moves for current player:', nextLegal);
+          setPiecesLegalMoves(nextLegal);
+        } else {
+          console.log('[useGame] Clearing legal moves (advanced move or no legal moves)');
+          setPiecesLegalMoves([]);
+        }
+      } else {
+        // Opponent's move - clear any legal moves for the current player
+        console.log('[useGame] Opponent move - clearing legal moves');
+        setPiecesLegalMoves([]);
+      }
+
+      // Log animation data
+      console.log("[useGame] Animation data:", {
+        hasValidMove,
+        delta,
+        from,
+        to,
+        tokenId,
+        currentPlayer: playerId,
+        mover
+      });
+      
+      // Only process the move if it's for the current player or the opponent
+      // and we have a valid token and position
+      const isCurrentPlayer = mover === playerId;
+      const shouldProcessMove = tokenId && (hasValidMove || to === 0) && 
+                             (isCurrentPlayer || !isCurrentPlayer); // Process both player and opponent moves
+      
+      if (shouldProcessMove) {
         // Map server tokenId (playerId-tN) to local pieceId (playerId-(N-1))
         let pieceId = tokenId;
-        const m = /^(.+)-t(\d)$/.exec(tokenId || "");
+        const m = /^(.+)-t(\d+)$/.exec(tokenId || "");
         if (m) {
           const base = m[1];
           const idx = Math.max(0, parseInt(m[2], 10) - 1);
           pieceId = `${base}-${idx}`;
         }
-        moveToIndexRef.current?.(pieceId, delta);
+        
+        console.log("[useGame] Processing move for piece:", {
+          originalTokenId: tokenId,
+          mappedPieceId: pieceId,
+          from,
+          to,
+          delta,
+          hasValidMove,
+          moveFunction: moveToIndexRef.current ? 'moveToIndexRef' : moveTokenToRef.current ? 'moveTokenToRef' : 'none'
+        });
+        
+        // If we have a valid delta, use moveToIndexRef for smooth animation
+        if (hasValidMove && delta !== 0 && moveToIndexRef.current) {
+          console.log("[useGame] Animating with delta:", delta);
+          moveToIndexRef.current(pieceId, delta);
+        } 
+        // If no delta but we have a target position, use moveTokenToRef
+        else if ((!hasValidMove || delta === 0) && moveTokenToRef.current) {
+          console.log("[useGame] Moving directly to position:", to);
+          moveTokenToRef.current(pieceId, to);
+        }
+        // If we have a valid position but no move function, log an error
+        else if (hasValidMove) {
+          console.error("[useGame] No valid move function available for piece:", pieceId);
+        }
       }
+    };
+
+    // Process the move for both current player and opponent
+    const processMove = (data, isOpponentMove = false) => {
+      const { tokenId, from, to } = data;
+      
+      if (!tokenId || to === undefined) {
+        console.error('[useGame] Invalid move data:', { tokenId, to });
+        return;
+      }
+
+      // Map server tokenId (playerId-tN) to local pieceId (playerId-(N-1))
+      let pieceId = tokenId;
+      const m = /^(.+)-t(\d+)$/.exec(tokenId);
+      if (m) {
+        const base = m[1];
+        const idx = Math.max(0, parseInt(m[2], 10) - 1);
+        pieceId = `${base}-${idx}`;
+      }
+      
+      console.log(`[useGame] Processing ${isOpponentMove ? 'opponent' : 'player'} move:`, {
+        pieceId,
+        from,
+        to,
+        isOpponentMove,
+        moveFunction: moveTokenToRef.current ? 'moveTokenToRef' : 'none'
+      });
+      
+      // Move the piece to the target position
+      if (moveTokenToRef.current) {
+        console.log(`[useGame] Moving ${isOpponentMove ? 'opponent' : 'player'} piece to position:`, to);
+        moveTokenToRef.current(pieceId, to);
+      }
+    };
+
+    const unsubscribePlayer = onMoveResult((data) => {
+      if (!data || data.playerId !== playerId) return; // Only process current player's moves
+      handleMove(data, false);
+      processMove(data, false);
     });
+    
+    const unsubscribeOpponent = onOpponentMove((data) => {
+      if (!data || data.playerId === playerId) return; // Only process other players' moves
+      handleMove(data, true);
+      processMove(data, true);
+    });
+
     return () => {
-      if (typeof unsubscribe === "function") unsubscribe();
+      if (unsubscribePlayer) unsubscribePlayer();
+      if (unsubscribeOpponent) unsubscribeOpponent();
     };
   }, [playerId, moveTokenToRef, setPiecesLegalMoves]);
 
-  // ✅ Update usePieces whenever legalMoves changes
+  // Update usePieces whenever legalMoves changes
   useEffect(() => {
     if (legalMoves) setPiecesLegalMoves(legalMoves);
   }, [legalMoves, setPiecesLegalMoves]);

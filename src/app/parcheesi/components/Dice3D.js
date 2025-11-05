@@ -15,7 +15,7 @@ export default function Dice3D({ diceValue = 1, isRolling }) {
   };
 
   useEffect(() => {
-    console.log("[Dice3D] Dice value:", diceValue, "maps to rotation:", faceRotations[diceValue]);
+    // console.log("[Dice3D] Dice value:", diceValue, "maps to rotation:", faceRotations[diceValue]);
 
     if (isRolling) {
       // Simulate random spin before landing
@@ -25,13 +25,13 @@ export default function Dice3D({ diceValue = 1, isRolling }) {
 
       const timer = setTimeout(() => {
         setRotation(faceRotations[diceValue] || { x: 0, y: 0 });
-        console.log("[Dice3D] Final rotation set to show face:", diceValue);
+        // console.log("[Dice3D] Final rotation set to show face:", diceValue);
       }, 1500);
 
       return () => clearTimeout(timer);
     } else {
       setRotation(faceRotations[diceValue] || { x: 0, y: 0 });
-      console.log("[Dice3D] Static render for dice value", diceValue);
+      // console.log("[Dice3D] Static render for dice value", diceValue);
     }
   }, [diceValue, isRolling]);
 
