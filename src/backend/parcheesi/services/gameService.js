@@ -37,7 +37,21 @@ export const gameService = {
     }
 
     const dice = rollDice();
-    console.log('[gameService.rollDice] Generated dice:', dice);
+    console.log('[gameService.rollDice] Generated dice:', { playerId, dice });
+    // Update per-player roll statistics
+    if (gameState.rollStats && gameState.rollStats[playerId]) {
+      const stats = gameState.rollStats[playerId];
+      stats.totalRolls += 1;
+      stats.totalDice += dice.length;
+      dice.forEach((d) => {
+        if (stats.faces[d] !== undefined) stats.faces[d] += 1;
+      });
+      console.log('[gameService.rollDice] Roll stats updated:', {
+        playerId,
+        totalRolls: stats.totalRolls,
+        faces: stats.faces,
+      });
+    }
     attachPendingDice(gameState, dice);
     const legalMoves = rulesGetLegalMoves(gameState, playerId);
     console.log('[gameService.rollDice] Legal moves:', legalMoves);
@@ -64,6 +78,9 @@ export const gameService = {
       legalMoves,
       autoAdvanced: false,
       gameState,
+      rollStats: gameState.rollStats
+        ? gameState.rollStats[playerId]
+        : undefined,
     };
   },
 

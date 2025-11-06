@@ -46,12 +46,30 @@ export function createGameState(playerIds) {
     gameOver: false,
     winner: null,
     lastActionAt: Date.now(),
+    // Per-player dice roll statistics for debugging RNG distribution
+    rollStats: playerIds.reduce((acc, id) => {
+      acc[id] = {
+        totalRolls: 0,
+        totalDice: 0,
+        faces: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+      };
+      return acc;
+    }, {}),
   };
 }
 
 // Roll dice - ALWAYS returns 2 dice (Parcheesi standard)
 export function rollDice() {
-  return [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1];
+  // Prefer cryptographically strong RNG if available.
+  try {
+    const { randomInt } = require('crypto');
+    return [randomInt(1, 7), randomInt(1, 7)];
+  } catch (err) {
+    return [
+      Math.floor(Math.random() * 6) + 1,
+      Math.floor(Math.random() * 6) + 1,
+    ];
+  }
 }
 
 // Determine if it's the player's turn
