@@ -17,6 +17,9 @@ const START_CELLS = {
   green: 56,
 };
 
+// Safe cells where captures are not allowed (start cells for each color)
+const SAFE_CELLS = new Set(Object.values(START_CELLS));
+
 // Create an initial game state for provided player ids
 export function createGameState(playerIds) {
   const isTwoPlayer = playerIds.length === 2;
@@ -66,11 +69,11 @@ export function getTokenLegalMoves(token, diceValue, player) {
   }
 
   // Token on track: can move forward
-  const newPos = token.position + diceValue;
-
-  // Don't allow moving past the end (simplified - real Ludo has final stretch)
-  if (newPos > TRACK_LENGTH) return [];
-
+  let newPos = token.position + diceValue;
+  // Wrap around the track beyond TRACK_LENGTH (frontend animates wrap)
+  if (newPos > TRACK_LENGTH) {
+    newPos = ((newPos - 1) % TRACK_LENGTH) + 1;
+  }
   return [newPos];
 }
 
@@ -138,9 +141,9 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
   } else {
     // Move forward on track
     newPosition = token.position + diceValue;
-
+    // Wrap around the track beyond TRACK_LENGTH
     if (newPosition > TRACK_LENGTH) {
-      return { success: false, error: 'Move exceeds track length' };
+      newPosition = ((newPosition - 1) % TRACK_LENGTH) + 1;
     }
   }
 
@@ -152,6 +155,7 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
   gameState.usedDice[diceIndex] = true;
 
   let bonusMove = false;
+  let capturedTokens = [];
 
   // Check if token reached finish (simplified - cell 68 or final stretch)
   // In real Ludo, tokens have a final home stretch per color
@@ -163,6 +167,25 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
   // Bonus move if rolled a 6 (may be suppressed if chained consumed remaining die and both dice now used)
   if (diceValue === 6 && !gameState.gameOver) {
     bonusMove = true;
+  }
+
+  // Capture logic: if landing on an opponent on a non-safe cell, send opponents back to home
+  if (typeof token.position === 'number' && !SAFE_CELLS.has(token.position)) {
+    gameState.players.forEach((p) => {
+      if (p.id === playerId) return; // skip self
+      p.tokens.forEach((oppToken) => {
+        if (!oppToken.finished && oppToken.position === token.position) {
+          // send opponent token back to home
+          oppToken.position = 'home';
+          // ensure finished flag reset (defensive)
+          oppToken.finished = false;
+          capturedTokens.push({ playerId: p.id, tokenId: oppToken.id });
+        }
+      });
+    });
+    if (capturedTokens.length > 0 && !gameState.gameOver) {
+      bonusMove = true; // grant extra move for capture
+    }
   }
 
   // Auto-chain second die when entering from home with a 6 and other die is NOT 6.
@@ -217,6 +240,7 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
     bonusMove,
     allDiceUsed,
     chainedMove,
+    capturedTokens,
   };
 }
 

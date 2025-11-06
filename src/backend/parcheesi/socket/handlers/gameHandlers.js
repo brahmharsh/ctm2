@@ -204,6 +204,7 @@ export function registerGameHandlers(io, socket) {
         bonusMove: result.bonusMove,
         finished: result.finished,
         chainedMove: result.chainedMove || null,
+        capturedTokens: result.capturedTokens || [],
         legalMoves: remainingLegalMoves,
       });
 
