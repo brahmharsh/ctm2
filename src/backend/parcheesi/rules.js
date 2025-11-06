@@ -168,6 +168,7 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
   // Auto-chain second die when entering from home with a 6 and other die is NOT 6.
   let chainedMove = null;
   if (
+    false &&
     oldPosition === 'home' &&
     diceValue === HOME_ENTRY_ROLL &&
     Array.isArray(gameState.pendingDice) &&

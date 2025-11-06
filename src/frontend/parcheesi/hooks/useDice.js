@@ -9,6 +9,15 @@ export function useDice(playerId, currentPlayer, setAnimatedDice) {
   const [isRolling, setIsRolling] = useState(false);
   const [legalMoves, setLegalMoves] = useState([]); // store legal moves
 
+  const clearLegalMoves = () => setLegalMoves([]);
+
+  // Allow consumers (useGame) to push updated legal moves from server (e.g., after first die used)
+  const setLegalMovesFromServer = (moves) => {
+    if (Array.isArray(moves)) {
+      setLegalMoves(moves);
+    }
+  };
+
   const rollDice = () => {
     if (isRolling) return;
     if (!currentPlayer || currentPlayer.id !== playerId) {
@@ -65,5 +74,12 @@ export function useDice(playerId, currentPlayer, setAnimatedDice) {
     });
   };
 
-  return { isRolling, rollDice, startGame, legalMoves };
+  return {
+    isRolling,
+    rollDice,
+    startGame,
+    legalMoves,
+    clearLegalMoves,
+    setLegalMovesFromServer,
+  };
 }

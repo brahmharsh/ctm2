@@ -183,9 +183,9 @@ export function registerGameHandlers(io, socket) {
           event: 'move:token',
         });
 
-      // Compute remaining legal moves if bonusMove still active and not all dice used
+      // Compute remaining legal moves whenever not all dice are used (e.g., after using one die from [3,4])
       let remainingLegalMoves = [];
-      if (result.bonusMove && !result.allDiceUsed) {
+      if (!result.allDiceUsed) {
         try {
           remainingLegalMoves = gameService.getLegalMoves
             ? gameService.getLegalMoves(roomId, playerId)
@@ -215,8 +215,8 @@ export function registerGameHandlers(io, socket) {
       } else {
         io.to(roomId).emit('update:state', { gameState: result.gameState });
 
-        // Only emit turn:end if turn actually changed
-        if (!result.bonusMove || result.allDiceUsed) {
+        // Only emit turn:end if turn actually advanced
+        if (result.turnAdvanced) {
           io.to(roomId).emit('turn:end', { nextPlayer: result.nextPlayer });
         }
       }
