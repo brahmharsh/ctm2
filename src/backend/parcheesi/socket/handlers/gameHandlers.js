@@ -134,7 +134,6 @@ export function registerGameHandlers(io, socket) {
         dice: result.dice,
         legalMoves: result.legalMoves,
       });
-
       // Always emit turn:end and state update after dice roll (auto-advance)
       if (result.autoAdvanced) {
         io.to(roomId).emit('turn:end', {

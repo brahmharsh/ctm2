@@ -40,7 +40,7 @@ export default function Controls({
     Array.isArray(animatedDice) &&
     animatedDice.length === 2 &&
     !(animatedDice[0] === 1 && animatedDice[1] === 1);
-
+  console.log('[Controls] Dice rolled:', diceRolled, animatedDice);
   return (
     <div className="flex flex-col w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 space-y-4">
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl p-4">
@@ -174,14 +174,12 @@ export default function Controls({
             isRolling ||
             !isMyTurn ||
             !gameStarted ||
-            diceRolled ||
             (legalMoves && legalMoves.length > 0)
           }
           className={`w-full px-6 py-3 rounded-xl shadow-md font-semibold transition-all transform ${
             isRolling ||
             !isMyTurn ||
             !gameStarted ||
-            diceRolled ||
             (legalMoves && legalMoves.length > 0)
               ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
               : 'bg-indigo-600 dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:scale-[1.02]'
@@ -191,8 +189,6 @@ export default function Controls({
             ? '🎲 Rolling...'
             : !isMyTurn
             ? `⌛ ${currentPlayer?.color || currentPlayer?.id}'s Turn`
-            : diceRolled
-            ? 'Waiting for next turn...'
             : legalMoves && legalMoves.length > 0
             ? 'Use dice first'
             : '🎲 Roll Dice'}

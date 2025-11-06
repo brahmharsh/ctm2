@@ -226,6 +226,10 @@ export function advanceTurn(gameState) {
   gameState.usedDice = [false, false];
   gameState.currentPlayerIndex =
     (gameState.currentPlayerIndex + 1) % gameState.players.length;
+  console.log('[rules.advanceTurn] Advanced turn to player:', {
+    playerId: gameState.players[gameState.currentPlayerIndex].id,
+    currentPlayerIndex: gameState.currentPlayerIndex,
+  });
   gameState.lastActionAt = Date.now();
 }
 

@@ -33,7 +33,7 @@ export const gameService = {
     console.log('[gameService.rollDice] Generated dice:', dice);
     attachPendingDice(gameState, dice);
     const legalMoves = getLegalMoves(gameState, playerId);
-
+    console.log('[gameService.rollDice] Legal moves:', legalMoves);
     // If no legal moves, auto-advance turn
     if (legalMoves.length === 0) {
       advanceTurn(gameState);
