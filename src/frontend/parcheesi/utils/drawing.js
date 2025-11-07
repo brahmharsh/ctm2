@@ -624,34 +624,48 @@ export function drawBoard(
   ctx.restore();
 
   // Hide inactive player homes (for 2-player games, hide red and green)
-  if (players.length === 2) {
-    const cornerPixelSize = CORNER_SIZE * cellSize;
-    // Hide red (top-left) and green (bottom-left) homes
-    BoardComponents.drawInactivePlayerOverlay(
-      ctx,
-      0,
-      0,
-      cornerPixelSize,
-      cellSize
-    ); // Red
-    BoardComponents.drawInactivePlayerOverlay(
-      ctx,
-      0,
-      (GRID_SIZE - CORNER_SIZE) * cellSize,
-      cornerPixelSize,
-      cellSize
-    ); // Green
-  } else if (players.length === 3) {
-    const cornerPixelSize = CORNER_SIZE * cellSize;
-    // Hide green (bottom-left) home
-    BoardComponents.drawInactivePlayerOverlay(
-      ctx,
-      0,
-      (GRID_SIZE - CORNER_SIZE) * cellSize,
-      cornerPixelSize,
-      cellSize
-    ); // Green
-  }
+  // if (players.length === 2) {
+  //   const cornerPixelSize = CORNER_SIZE * cellSize;
+  //   // Hide red (top-left) and green (bottom-left) homes
+  //   BoardComponents.drawInactivePlayerOverlay(
+  //     ctx,
+  //     0,
+  //     0,
+  //     cornerPixelSize,
+  //     cellSize
+  //   ); // Red
+  //   BoardComponents.drawInactivePlayerOverlay(
+  //     ctx,
+  //     0,
+  //     (GRID_SIZE - CORNER_SIZE) * cellSize,
+  //     cornerPixelSize,
+  //     cellSize
+  //   ); // Green
+  // } else if (players.length === 3) {
+  //   const cornerPixelSize = CORNER_SIZE * cellSize;
+  //   // Hide green (bottom-left) home
+  //   BoardComponents.drawInactivePlayerOverlay(
+  //     ctx,
+  //     0,
+  //     (GRID_SIZE - CORNER_SIZE) * cellSize,
+  //     cornerPixelSize,
+  //     cellSize
+  //   ); // Green
+  // }
+
+    // 🔹 Dynamically hide inactive player homes
+  // const cornerPixelSize = CORNER_SIZE * cellSize;
+  const activeColors = players.map((p) => p.color); // e.g. ['red', 'yellow']
+
+  Object.entries(PLAYER_POSITIONS).forEach(([color, position]) => {
+    if (!activeColors.includes(color)) {
+      // This player is inactive → dim their home
+      const x = position.x * cellSize;
+      const y = position.y * cellSize;
+      BoardComponents.drawInactivePlayerOverlay(ctx, x, y, cornerPixelSize, cellSize);
+    }
+  });
+
 
   // Draw avatars (outside the rotated context)
   if (imageLoaded && avatarImageRef.current) {
