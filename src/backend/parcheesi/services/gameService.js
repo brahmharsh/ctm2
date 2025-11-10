@@ -1,7 +1,7 @@
 // Game service orchestrating rule application and turn flow
 import {
   rollDice,
-  getLegalMoves,
+  getLegalMoves as rulesGetLegalMoves,
   applyMove,
   checkWin,
   advanceTurn,
@@ -14,6 +14,13 @@ import { roomService } from '#parcheesi/services/roomService.js';
 export const gameService = {
   startGame(roomId) {
     return roomService.startGame(roomId);
+  },
+
+  // Expose a read-only helper to compute legal moves from current state
+  getLegalMoves(roomId, playerId) {
+    const gameState = roomService.getGameState(roomId);
+    if (!gameState) return [];
+    return rulesGetLegalMoves(gameState, playerId);
   },
 
   rollDice(roomId, playerId) {
@@ -30,10 +37,24 @@ export const gameService = {
     }
 
     const dice = rollDice();
-    console.log('[gameService.rollDice] Generated dice:', dice);
+    console.log('[gameService.rollDice] Generated dice:', { playerId, dice });
+    // Update per-player roll statistics
+    if (gameState.rollStats && gameState.rollStats[playerId]) {
+      const stats = gameState.rollStats[playerId];
+      stats.totalRolls += 1;
+      stats.totalDice += dice.length;
+      dice.forEach((d) => {
+        if (stats.faces[d] !== undefined) stats.faces[d] += 1;
+      });
+      console.log('[gameService.rollDice] Roll stats updated:', {
+        playerId,
+        totalRolls: stats.totalRolls,
+        faces: stats.faces,
+      });
+    }
     attachPendingDice(gameState, dice);
-    const legalMoves = getLegalMoves(gameState, playerId);
-
+    const legalMoves = rulesGetLegalMoves(gameState, playerId);
+    console.log('[gameService.rollDice] Legal moves:', legalMoves);
     // If no legal moves, auto-advance turn
     if (legalMoves.length === 0) {
       advanceTurn(gameState);
@@ -57,6 +78,9 @@ export const gameService = {
       legalMoves,
       autoAdvanced: false,
       gameState,
+      rollStats: gameState.rollStats
+        ? gameState.rollStats[playerId]
+        : undefined,
     };
   },
 
@@ -79,9 +103,18 @@ export const gameService = {
       gameWon = true;
     }
 
-    // Check if turn should advance (all dice used or game won)
-    if ((shouldAdvanceTurn(gameState) && !moveResult.bonusMove) || gameWon) {
-      advanceTurn(gameState);
+    // If both dice are used and a bonus move is active (e.g., rolling a 6),
+    // grant an extra roll to the SAME player by clearing pending dice without advancing turn.
+    let turnAdvanced = false;
+    if (moveResult.allDiceUsed && moveResult.bonusMove && !gameWon) {
+      gameState.pendingDice = null;
+      gameState.usedDice = [false, false];
+    } else {
+      // Check if turn should advance (all dice used or game won)
+      if ((shouldAdvanceTurn(gameState) && !moveResult.bonusMove) || gameWon) {
+        advanceTurn(gameState);
+        turnAdvanced = true;
+      }
     }
 
     roomService.updateGameState(roomId, gameState);
@@ -91,6 +124,7 @@ export const gameService = {
       ...moveResult,
       gameWon,
       gameState,
+      turnAdvanced,
       nextPlayer: gameState.players[gameState.currentPlayerIndex].id,
     };
   },

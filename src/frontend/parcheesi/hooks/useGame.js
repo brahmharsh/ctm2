@@ -58,7 +58,14 @@ export function useGame(initialRoomId, initialPlayerId) {
     console.log('[useGame] animatedDice state updated:', animatedDice);
   }, [animatedDice]);
 
-  const { isRolling, rollDice, startGame, legalMoves } = useDice(
+  const {
+    isRolling,
+    rollDice,
+    startGame,
+    legalMoves,
+    clearLegalMoves,
+    setLegalMovesFromServer,
+  } = useDice(
     playerId,
     currentPlayer,
     setAnimatedDice
@@ -230,6 +237,16 @@ export function useGame(initialRoomId, initialPlayerId) {
           setSelectedTokenId(null);
           setPendingDice([]);
           setUsedDice([]);
+          // // Clear legal moves only if the next player is NOT me
+          // try {
+          //   const nextPlayer = data?.nextPlayer;
+          //   const shouldClear = !nextPlayer || nextPlayer !== playerId;
+          //   if (shouldClear && typeof clearLegalMoves === 'function') {
+          //     clearLegalMoves();
+          //   }
+          // } catch (e) {
+          //   // no-op
+          // }
           // Do NOT reset animatedDice here; keep last rolled faces visible for debugging
         });
 
@@ -1250,6 +1267,11 @@ export function useGame(initialRoomId, initialPlayerId) {
       }
       if (Array.isArray(data?.legalMoves)) {
         console.log('[useGame] Updating legalMoves from move:result payload');
+        try {
+          if (typeof setLegalMovesFromServer === 'function') {
+            setLegalMovesFromServer(data.legalMoves);
+          }
+        } catch (e) {}
         const selectableTokenIds = new Set(
           data.legalMoves.map((m) => m.tokenId)
         );

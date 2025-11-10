@@ -53,8 +53,8 @@ function SingleDie({ index, diceValue = 1, isRolling, used }) {
   const faceRotations = {
     1: { x: 0, y: 0 }, // 1 front
     2: { x: 0, y: 180 }, // 2 back
-    3: { x: 0, y: 90 }, // 3 right
-    4: { x: 0, y: -90 }, // 4 left
+    3: { x: 0, y: -90 }, // 3 right
+    4: { x: 0, y: 90 }, // 4 left
     5: { x: 90, y: 0 }, // 5 now treated as bottom -> rotate up
     6: { x: -90, y: 0 }, // 6 top -> rotate down so 6 faces viewer
   };
