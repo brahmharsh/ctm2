@@ -177,15 +177,17 @@ export function registerGameHandlers(io, socket) {
         tokenId,
         diceIndex
       );
-      if (!result.success)
+      if (!result.success) {
         return socket.emit('game:error', {
           message: result.error,
+          code: result.code, // Propagate error code from spec
           event: 'move:token',
         });
+      }
 
       // Compute remaining legal moves whenever not all dice are used (e.g., after using one die from [3,4])
       let remainingLegalMoves = [];
-      if (!result.allDiceUsed) {
+      if (!result.allDiceUsed && !result.bonusPending) {
         try {
           remainingLegalMoves = gameService.getLegalMoves
             ? gameService.getLegalMoves(roomId, playerId)
@@ -203,9 +205,11 @@ export function registerGameHandlers(io, socket) {
         diceValue: result.diceValue,
         bonusMove: result.bonusMove,
         finished: result.finished,
-        chainedMove: result.chainedMove || null,
         capturedTokens: result.capturedTokens || [],
+        captureBonus: result.captureBonus || 0,
+        bonusPending: result.bonusPending || false,
         legalMoves: remainingLegalMoves,
+        enteredHomeRow: result.enteredHomeRow || false,
       });
 
       if (result.gameWon) {
@@ -219,6 +223,12 @@ export function registerGameHandlers(io, socket) {
         // Only emit turn:end if turn actually advanced
         if (result.turnAdvanced) {
           io.to(roomId).emit('turn:end', { nextPlayer: result.nextPlayer });
+        } else if (result.bonusPending) {
+          // Notify UI that bonus move is pending
+          io.to(roomId).emit('bonus:pending', {
+            playerId,
+            bonusAmount: result.captureBonus,
+          });
         }
       }
     } catch (error) {

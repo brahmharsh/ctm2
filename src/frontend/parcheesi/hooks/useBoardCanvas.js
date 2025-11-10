@@ -88,6 +88,24 @@ export function useBoardCanvas({
             token.py = (pathCell.y + 0.5) * cellSize;
           }
         }
+      } else if (
+        typeof token.position === 'string' &&
+        token.position.startsWith('home_row:')
+      ) {
+        // Home row position - convert to color-specific format
+        const homeRowStep = parseInt(token.position.split(':')[1]);
+        const colorPrefix = token.color.charAt(0).toUpperCase();
+        const homeRowKey = `${colorPrefix}${homeRowStep}`;
+
+        const indices = gameCellsRef.current[homeRowKey];
+        if (indices) {
+          const gridIndex = indices[0];
+          const pathCell = pathRef.current[gridIndex];
+          if (pathCell) {
+            token.px = (pathCell.x + 0.5) * cellSize;
+            token.py = (pathCell.y + 0.5) * cellSize;
+          }
+        }
       }
     });
   }, [gameState, phase, players]);
