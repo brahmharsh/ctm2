@@ -2,8 +2,12 @@
 'use client';
 import { io } from 'socket.io-client';
 
+// Use relative path to connect to same origin (works for localhost, tunnels, and deployments)
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000';
+  process.env.NEXT_PUBLIC_SOCKET_URL ||
+  (typeof window !== 'undefined'
+    ? window.location.origin
+    : 'http://localhost:3000');
 let socket = null;
 
 export function initSocket() {
@@ -14,6 +18,8 @@ export function initSocket() {
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionAttempts: 5,
+    // Use relative path for better compatibility
+    path: '/socket.io',
   });
 
   socket.on('connect', () => console.log('[Socket] Connected:', socket.id));

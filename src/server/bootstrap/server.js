@@ -32,7 +32,7 @@ async function start() {
 
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${PORT}`,
+      origin: '*',
       methods: ['GET', 'POST'],
     },
   });
