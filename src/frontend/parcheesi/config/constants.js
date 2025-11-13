@@ -82,6 +82,13 @@ export const GAME_RULES = [
   'Each die can be used at most once per turn.',
   'If a die has no legal moves, it is treated as used.',
   'Move only your color tokens.',
+  'Complete a full circuit before entering your home row.',
+  'Each color has a specific entry square for their home row.',
   'Exact count is required to enter the home path and finish.',
+  'Two tokens of the same color on a square form a barrier.',
+  'Barriers block all tokens from passing or landing.',
+  'Capture opponent tokens by landing on them (except on safe squares).',
+  'Safe squares protect tokens from being captured.',
+  'Capturing a token earns a 20-step bonus move.',
   'The game starts when at least 2 players join.',
 ];
