@@ -53,7 +53,16 @@ export default function Game({ roomId, playerId }) {
   ]);
 
   return (
-    <div className="flex sm:flex-row flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-950 gap-4 p-4">
+    <div className="relative flex sm:flex-row flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-950 gap-4 p-4">
+      {/* Header with Room and Player info */}
+      <div className="absolute top-4 left-4 flex items-center gap-2 z-20">
+        <div className="px-3 py-1 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow">
+          Room: {roomId}
+        </div>
+        <div className="px-3 py-1 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow">
+          You: {playerId}
+        </div>
+      </div>
       {!gameStarted && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 z-10">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
@@ -67,6 +76,19 @@ export default function Game({ roomId, playerId }) {
           </div>
         </div>
       )}
+      <div className="absolute bottom-4 right-4 z-20 max-w-xs">
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow p-3">
+          <div className="text-xs font-bold text-gray-700 dark:text-gray-200 mb-2">Game Rules</div>
+          <ul className="list-disc list-inside space-y-1 text-[11px] leading-snug text-gray-600 dark:text-gray-300">
+            <li>Roll only on your turn.</li>
+            <li>Select a token first, then choose a die.</li>
+            <li>Each die can be used at most once per turn.</li>
+            <li>You can move only your color tokens.</li>
+            <li>If a die has no legal moves, it is treated as used.</li>
+            <li>Game starts when at least 2 players join.</li>
+          </ul>
+        </div>
+      </div>
       {!pieceColor && gameStarted && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 z-10">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
