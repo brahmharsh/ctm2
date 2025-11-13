@@ -2,6 +2,7 @@
 'use client';
 
 import { useGame } from '../hooks/useGame';
+import { GAME_RULES } from '../config/constants';
 import Controls from './Controls';
 import { useEffect } from 'react';
 
@@ -79,14 +80,11 @@ export default function Game({ roomId, playerId }) {
       <div className="absolute bottom-4 right-4 z-20 max-w-xs">
         <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 shadow p-3">
           <div className="text-xs font-bold text-gray-700 dark:text-gray-200 mb-2">Game Rules</div>
-          <ul className="list-disc list-inside space-y-1 text-[11px] leading-snug text-gray-600 dark:text-gray-300">
-            <li>Roll only on your turn.</li>
-            <li>Select a token first, then choose a die.</li>
-            <li>Each die can be used at most once per turn.</li>
-            <li>You can move only your color tokens.</li>
-            <li>If a die has no legal moves, it is treated as used.</li>
-            <li>Game starts when at least 2 players join.</li>
-          </ul>
+          <ol className="list-decimal list-inside space-y-1 text-[11px] leading-snug text-gray-600 dark:text-gray-300">
+            {GAME_RULES.map((rule, idx) => (
+              <li key={idx}>{rule}</li>
+            ))}
+          </ol>
         </div>
       </div>
       {!pieceColor && gameStarted && (
