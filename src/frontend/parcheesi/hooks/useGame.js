@@ -65,11 +65,7 @@ export function useGame(initialRoomId, initialPlayerId) {
     legalMoves,
     clearLegalMoves,
     setLegalMovesFromServer,
-  } = useDice(
-    playerId,
-    currentPlayer,
-    setAnimatedDice
-  );
+  } = useDice(playerId, currentPlayer, setAnimatedDice);
 
   // When legal moves are available, mark the corresponding tokens as selectable
   useEffect(() => {
@@ -299,6 +295,9 @@ export function useGame(initialRoomId, initialPlayerId) {
 
         player.tokens.forEach((token, idx) => {
           const inHome = token.position === 'home';
+          const inHomeRow =
+            typeof token.position === 'string' &&
+            token.position.startsWith('home_row:');
           const isFinished = token.finished || false;
 
           // For home tokens, reassign slot based on remaining home tokens
@@ -309,7 +308,7 @@ export function useGame(initialRoomId, initialPlayerId) {
           }
 
           console.log(
-            `[useGame] Token ${token.id}: position=${token.position}, inHome=${inHome}, slotIndex=${displaySlotIndex}`
+            `[useGame] Token ${token.id}: position=${token.position}, inHome=${inHome}, inHomeRow=${inHomeRow}, slotIndex=${displaySlotIndex}`
           );
 
           allPieces.push({
@@ -317,8 +316,9 @@ export function useGame(initialRoomId, initialPlayerId) {
             tokenId: token.id,
             playerId: player.id,
             color,
-            position: token.position, // Keep the actual position (could be 'home', a number, or 'finished')
+            position: token.position, // Keep the actual position (could be 'home', a number, 'home_row:N', or 'finished')
             inHome,
+            inHomeRow,
             slotIndex: displaySlotIndex,
             finished: isFinished,
             x: 0,
@@ -516,7 +516,7 @@ export function useGame(initialRoomId, initialPlayerId) {
     // Update positions for all pieces
     const updatedPieces = currentPieces.map((piece) => {
       // Home tokens: place inside corner circles
-      if (piece.inHome) {
+      if (piece.inHome && piece.position === 'home') {
         const slotPos = getHomeSlotPosition(
           piece.color,
           piece.slotIndex,
@@ -535,8 +535,22 @@ export function useGame(initialRoomId, initialPlayerId) {
         return piece;
       }
 
-      // Piece out of home: use board cell mapping (existing logic)
-      const currentCell = piecePositionsRef.current[piece.id] || piece.position;
+      // Piece on board or in home row: use board cell mapping
+      let currentCell = piecePositionsRef.current[piece.id] || piece.position;
+
+      // Handle home_row:N format from backend - convert to color-specific format (Y1, B1, R1, G1)
+      if (
+        typeof currentCell === 'string' &&
+        currentCell.startsWith('home_row:')
+      ) {
+        const homeRowStep = parseInt(currentCell.split(':')[1]);
+        const colorPrefix = piece.color.charAt(0).toUpperCase(); // Y, B, R, G
+        currentCell = `${colorPrefix}${homeRowStep}`;
+        console.log(
+          `[recalculatePiecePositions] Converted home row position for ${piece.id}: ${piece.position} -> ${currentCell}`
+        );
+      }
+
       const targetIndices = gameCells[currentCell];
       if (!targetIndices) {
         console.log(

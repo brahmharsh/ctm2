@@ -122,7 +122,7 @@ export default function Controls({
             debug={debug}
           />
         </div>
-        {legalMoves && legalMoves.length > 0 && (
+        {isMyTurn && legalMoves && legalMoves.length > 0 && (
           <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
             <p className="text-sm text-center text-gray-600 dark:text-gray-300 mb-2">
               {selectedTokenId
@@ -140,14 +140,26 @@ export default function Controls({
                 return (
                   <button
                     key={index}
-                    onClick={() => onUseDie(selectedTokenId, index)}
-                    disabled={isUsed || selectedTokenId === null || !isMyTurn}
+                    onClick={() => {
+                      if (selectedTokenId === null) {
+                        alert('Please select a token before choosing a die.');
+                        return;
+                      }
+                      onUseDie(selectedTokenId, index);
+                    }}
+                    disabled={isUsed || !isMyTurn}
                     className={`px-4 py-2 text-lg font-bold rounded-md transition-all ${
                       isUsed
                         ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 line-through'
                         : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
-                    title={isUsed ? 'Die already used' : 'Use this die'}
+                    title={
+                      isUsed
+                        ? 'Die already used'
+                        : selectedTokenId === null
+                        ? 'Select a token first'
+                        : 'Use this die'
+                    }
                   >
                     {die}
                   </button>

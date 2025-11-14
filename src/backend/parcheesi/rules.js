@@ -1,11 +1,29 @@
-// Core game rules implementation
-// This is a minimal rules engine enabling turn-based dice movement.
-// It can be expanded later (captures, safe spots, entry logic, etc.).
+// Core game rules implementation - SPEC COMPLIANT (docs/parchessi_rules.md)
+// Enforces house rules: barriers, safe squares, home row, exact home entry, +20 capture bonus
 
-// Configuration constants (could be externalized later)
+// Error codes from spec (Section 6)
+export const ErrorCodes = {
+  NOT_YOUR_TURN: 'NOT_YOUR_TURN',
+  PLAYER_NOT_FOUND: 'PLAYER_NOT_FOUND',
+  TOKEN_NOT_FOUND: 'TOKEN_NOT_FOUND',
+  TOKEN_FINISHED: 'TOKEN_FINISHED',
+  NO_PENDING_DICE: 'NO_PENDING_DICE',
+  DICE_ALREADY_USED: 'DICE_ALREADY_USED',
+  NEED_SIX_TO_ENTER: 'NEED_SIX_TO_ENTER',
+  BARRIER_BLOCKED: 'BARRIER_BLOCKED',
+  CAPTURE_ON_SAFE: 'CAPTURE_ON_SAFE',
+  OVERSHOOT_HOME: 'OVERSHOOT_HOME',
+  INVALID_HOME_ROW_ENTRY: 'INVALID_HOME_ROW_ENTRY',
+  MOVE_NOT_LEGAL: 'MOVE_NOT_LEGAL',
+};
+
+// Configuration constants (from spec Section 5 & 9)
 const TOKENS_PER_PLAYER = 4;
 const TRACK_LENGTH = 68; // Total cells in the main track (1-68)
 const HOME_ENTRY_ROLL = 6; // Need 6 to enter from home
+const HOME_ROW_DEPTH = 7; // Steps in home row (Y1-Y7); Home is at position 8
+const HOME_FINISH_POSITION = HOME_ROW_DEPTH + 1; // Position 8 = finished
+const CAPTURE_BONUS = 20; // Bonus move for capturing
 
 // Color assignment for players (matches frontend constants)
 const PLAYER_COLORS = ['yellow', 'blue', 'red', 'green'];
@@ -17,8 +35,18 @@ const START_CELLS = {
   green: 56,
 };
 
-// Safe cells where captures are not allowed (start cells for each color)
-const SAFE_CELLS = new Set(Object.values(START_CELLS));
+// Safe cells from spec Section 5 (no captures allowed)
+const SAFE_CELLS = new Set([5, 12, 17, 29, 34, 46, 51, 63]);
+
+// Home row entry points: the square BEFORE which a token enters home row
+// Each color enters home row when they would land on the square before their start
+// (after completing the full circuit of 68 squares)
+const HOME_ROW_ENTRY = {
+  yellow: 4, // Yellow starts at 5, enters home row after passing 4
+  blue: 21, // Blue starts at 22, enters home row after passing 21
+  red: 38, // Red starts at 39, enters home row after passing 38
+  green: 55, // Green starts at 56, enters home row after passing 55
+};
 
 // Create an initial game state for provided player ids
 export function createGameState(playerIds) {
@@ -33,8 +61,10 @@ export function createGameState(playerIds) {
         startCell: START_CELLS[color],
         tokens: Array.from({ length: TOKENS_PER_PLAYER }).map((_, i) => ({
           id: `${id}-t${i}`,
-          position: 'home', // 'home' or cell number
+          position: 'home', // 'home', cell number, or 'home_row:<N>'
           finished: false,
+          inHomeRow: false,
+          homeRowPosition: null, // 1-7 when in home row
         })),
         finishedTokens: 0,
       };
@@ -46,7 +76,6 @@ export function createGameState(playerIds) {
     gameOver: false,
     winner: null,
     lastActionAt: Date.now(),
-    // Per-player dice roll statistics for debugging RNG distribution
     rollStats: playerIds.reduce((acc, id) => {
       acc[id] = {
         totalRolls: 0,
@@ -77,25 +106,236 @@ export function isPlayerTurn(gameState, playerId) {
   return gameState.players[gameState.currentPlayerIndex].id === playerId;
 }
 
-// Get legal moves for a specific token given a dice value
-export function getTokenLegalMoves(token, diceValue, player) {
-  if (token.finished) return [];
+// Helper: Check if a position has a barrier (2 same-color tokens)
+function hasBarrier(gameState, position, excludeTokenId = null) {
+  if (typeof position !== 'number') return false;
 
-  // Token in home: needs 6 to enter
-  if (token.position === 'home') {
-    return diceValue === HOME_ENTRY_ROLL ? [player.startCell] : [];
-  }
+  const tokensAtPosition = [];
+  gameState.players.forEach((player) => {
+    player.tokens.forEach((token) => {
+      if (
+        token.position === position &&
+        token.id !== excludeTokenId &&
+        !token.finished
+      ) {
+        tokensAtPosition.push({
+          playerId: player.id,
+          color: player.color,
+          tokenId: token.id,
+        });
+      }
+    });
+  });
 
-  // Token on track: can move forward
-  let newPos = token.position + diceValue;
-  // Wrap around the track beyond TRACK_LENGTH (frontend animates wrap)
-  if (newPos > TRACK_LENGTH) {
-    newPos = ((newPos - 1) % TRACK_LENGTH) + 1;
-  }
-  return [newPos];
+  // Barrier exists if 2 tokens of same color occupy the square
+  const colorCounts = {};
+  tokensAtPosition.forEach((t) => {
+    colorCounts[t.color] = (colorCounts[t.color] || 0) + 1;
+  });
+
+  return Object.values(colorCounts).some((count) => count >= 2);
 }
 
-// Produce list of legal moves for player given dice array and used status
+// Helper: Check if path contains any barriers (for movement validation)
+function pathContainsBarrier(
+  gameState,
+  startPos,
+  distance,
+  playerColor,
+  tokenId
+) {
+  if (typeof startPos !== 'number') return false;
+
+  // Check each square in the path
+  for (let step = 1; step <= distance; step++) {
+    let checkPos = startPos + step;
+
+    // Wrap around the track
+    if (checkPos > TRACK_LENGTH) {
+      checkPos = checkPos - TRACK_LENGTH;
+    }
+
+    // Check if this position is the home row entry for this color
+    if (checkPos === HOME_ROW_ENTRY[playerColor]) {
+      // Token is entering home row - no more barrier checks needed
+      return false;
+    }
+
+    if (hasBarrier(gameState, checkPos, tokenId)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Helper: Get tokens at a specific position
+function getTokensAtPosition(gameState, position, excludeTokenId = null) {
+  const tokens = [];
+  gameState.players.forEach((player) => {
+    player.tokens.forEach((token) => {
+      if (
+        token.position === position &&
+        token.id !== excludeTokenId &&
+        !token.finished
+      ) {
+        tokens.push({ player, token });
+      }
+    });
+  });
+  return tokens;
+}
+
+// Helper: Check if a position lands on or passes the home row entry for a color
+// Returns: { entersHomeRow: boolean, homeRowPosition: number }
+function checkHomeRowEntry(currentPosition, diceValue, color) {
+  const entrySquare = HOME_ROW_ENTRY[color];
+
+  // Calculate the path the token will take
+  const positions = [];
+  for (let i = 1; i <= diceValue; i++) {
+    let pos = currentPosition + i;
+    // Wrap around the track
+    if (pos > TRACK_LENGTH) {
+      pos = pos - TRACK_LENGTH;
+    }
+    positions.push(pos);
+  }
+
+  // Check if any position passes through the entry square
+  const entryIndex = positions.indexOf(entrySquare);
+  if (entryIndex !== -1) {
+    // Token enters home row
+    // Remaining moves after entry = total moves - moves to reach entry - 1
+    const homeRowPosition = diceValue - entryIndex - 1;
+    return { entersHomeRow: true, homeRowPosition };
+  }
+
+  return { entersHomeRow: false, homeRowPosition: 0 };
+}
+
+// Helper: Calculate final position accounting for wrapping and home row entry
+function calculateFinalPosition(currentPosition, diceValue, color) {
+  const homeRowCheck = checkHomeRowEntry(currentPosition, diceValue, color);
+
+  if (homeRowCheck.entersHomeRow) {
+    return {
+      type: 'home_row',
+      position: homeRowCheck.homeRowPosition,
+    };
+  }
+
+  // Normal track movement with wrapping
+  let newPos = currentPosition + diceValue;
+  if (newPos > TRACK_LENGTH) {
+    newPos = newPos - TRACK_LENGTH;
+  }
+
+  return {
+    type: 'track',
+    position: newPos,
+  };
+}
+
+// Get legal moves for a specific token given a dice value (SPEC COMPLIANT)
+export function getTokenLegalMoves(token, diceValue, player, gameState) {
+  if (token.finished) return [];
+
+  // Token in home: needs 6 to enter (Spec Section 3)
+  if (token.position === 'home') {
+    if (diceValue !== HOME_ENTRY_ROLL) return [];
+
+    const startSquare = player.startCell;
+
+    // Check if start square has barrier
+    if (hasBarrier(gameState, startSquare, token.id)) {
+      return []; // BARRIER_BLOCKED
+    }
+
+    // Check if start square has opponent on safe square
+    const tokensAtStart = getTokensAtPosition(gameState, startSquare, token.id);
+    const hasOpponent = tokensAtStart.some((t) => t.player.id !== player.id);
+
+    if (hasOpponent && SAFE_CELLS.has(startSquare)) {
+      return []; // Cannot capture on safe square
+    }
+
+    return [
+      {
+        position: startSquare,
+        capturesPossible: hasOpponent && !SAFE_CELLS.has(startSquare),
+      },
+    ];
+  }
+
+  // Token in home row
+  if (token.inHomeRow) {
+    const newHomePos = token.homeRowPosition + diceValue;
+    if (newHomePos === HOME_FINISH_POSITION) {
+      return [{ position: 'finished', isFinish: true }];
+    }
+    if (newHomePos > HOME_FINISH_POSITION) {
+      return []; // OVERSHOOT_HOME
+    }
+    return [
+      { position: `home_row:${newHomePos}`, homeRowPosition: newHomePos },
+    ];
+  }
+
+  // Token on track: calculate new position with home row entry check
+  const finalPos = calculateFinalPosition(
+    token.position,
+    diceValue,
+    player.color
+  );
+
+  if (finalPos.type === 'home_row') {
+    const homeRowPos = finalPos.position;
+
+    if (homeRowPos > HOME_FINISH_POSITION) {
+      return []; // OVERSHOOT_HOME
+    }
+    if (homeRowPos === HOME_FINISH_POSITION) {
+      return [{ position: 'finished', isFinish: true }];
+    }
+    return [
+      {
+        position: `home_row:${homeRowPos}`,
+        homeRowPosition: homeRowPos,
+        entersHomeRow: true,
+      },
+    ];
+  }
+
+  // Token stays on track
+  const newPos = finalPos.position;
+
+  // Check for barriers in path
+  if (
+    pathContainsBarrier(
+      gameState,
+      token.position,
+      diceValue,
+      player.color,
+      token.id
+    )
+  ) {
+    return []; // BARRIER_BLOCKED
+  }
+
+  // Check landing square for barrier
+  if (hasBarrier(gameState, newPos, token.id)) {
+    return []; // BARRIER_BLOCKED
+  }
+
+  // Check for capture possibility
+  const tokensAtDest = getTokensAtPosition(gameState, newPos, token.id);
+  const hasOpponent = tokensAtDest.some((t) => t.player.id !== player.id);
+  const capturesPossible = hasOpponent && !SAFE_CELLS.has(newPos);
+
+  return [{ position: newPos, capturesPossible }];
+}
+
+// Produce list of legal moves for player given dice array and used status (SPEC COMPLIANT)
 export function getLegalMoves(gameState, playerId) {
   const player = gameState.players.find((p) => p.id === playerId);
   if (!player || !gameState.pendingDice) return [];
@@ -106,13 +346,22 @@ export function getLegalMoves(gameState, playerId) {
     if (gameState.usedDice[diceIndex]) return; // Skip used dice
 
     player.tokens.forEach((token) => {
-      const possibleMoves = getTokenLegalMoves(token, diceValue, player);
-      possibleMoves.forEach((newPos) => {
+      const possibleMoves = getTokenLegalMoves(
+        token,
+        diceValue,
+        player,
+        gameState
+      );
+      possibleMoves.forEach((moveInfo) => {
         moves.push({
           tokenId: token.id,
           diceIndex,
           diceValue,
-          newPosition: newPos,
+          newPosition: moveInfo.position,
+          capturesPossible: moveInfo.capturesPossible || false,
+          isFinish: moveInfo.isFinish || false,
+          entersHomeRow: moveInfo.entersHomeRow || false,
+          homeRowPosition: moveInfo.homeRowPosition || null,
         });
       });
     });
@@ -121,130 +370,239 @@ export function getLegalMoves(gameState, playerId) {
   return moves;
 }
 
-// Apply the chosen move using a specific dice
+// Apply the chosen move using a specific dice (SPEC COMPLIANT with error codes)
 export function applyMove(gameState, playerId, tokenId, diceIndex) {
   if (!isPlayerTurn(gameState, playerId)) {
-    return { success: false, error: 'Not your turn' };
+    return {
+      success: false,
+      error: 'Not your turn',
+      code: ErrorCodes.NOT_YOUR_TURN,
+    };
   }
 
   const player = gameState.players.find((p) => p.id === playerId);
-  if (!player) return { success: false, error: 'Player not found' };
+  if (!player) {
+    return {
+      success: false,
+      error: 'Player not found',
+      code: ErrorCodes.PLAYER_NOT_FOUND,
+    };
+  }
 
   const token = player.tokens.find((t) => t.id === tokenId);
-  if (!token) return { success: false, error: 'Token not found' };
+  if (!token) {
+    return {
+      success: false,
+      error: 'Token not found',
+      code: ErrorCodes.TOKEN_NOT_FOUND,
+    };
+  }
 
   if (token.finished) {
-    return { success: false, error: 'Token already finished' };
+    return {
+      success: false,
+      error: 'Token already finished',
+      code: ErrorCodes.TOKEN_FINISHED,
+    };
   }
 
   if (!gameState.pendingDice || !gameState.pendingDice[diceIndex]) {
-    return { success: false, error: 'No pending dice roll' };
+    return {
+      success: false,
+      error: 'No pending dice roll',
+      code: ErrorCodes.NO_PENDING_DICE,
+    };
   }
 
   if (gameState.usedDice[diceIndex]) {
-    return { success: false, error: 'Dice already used' };
+    return {
+      success: false,
+      error: 'Dice already used',
+      code: ErrorCodes.DICE_ALREADY_USED,
+    };
   }
 
   const diceValue = gameState.pendingDice[diceIndex];
 
-  // Validate move based on current position
-  let newPosition;
+  // PRE-VALIDATION: Check specific error conditions before generic legal move check
 
+  // Validate move based on current position
   if (token.position === 'home') {
-    // Must roll 6 to enter
     if (diceValue !== HOME_ENTRY_ROLL) {
-      return { success: false, error: 'Need 6 to enter from home' };
+      return {
+        success: false,
+        error: 'Need 6 to enter from home',
+        code: ErrorCodes.NEED_SIX_TO_ENTER,
+      };
     }
-    newPosition = player.startCell;
+
+    if (hasBarrier(gameState, player.startCell, token.id)) {
+      return {
+        success: false,
+        error: 'Start square blocked by barrier',
+        code: ErrorCodes.BARRIER_BLOCKED,
+      };
+    }
+  } else if (token.inHomeRow) {
+    const newHomePos = token.homeRowPosition + diceValue;
+    if (newHomePos > HOME_FINISH_POSITION) {
+      return {
+        success: false,
+        error: 'Move overshoots home',
+        code: ErrorCodes.OVERSHOOT_HOME,
+      };
+    }
   } else {
-    // Move forward on track
-    newPosition = token.position + diceValue;
-    // Wrap around the track beyond TRACK_LENGTH
-    if (newPosition > TRACK_LENGTH) {
-      newPosition = ((newPosition - 1) % TRACK_LENGTH) + 1;
+    // Token on main track - check barriers and home row entry
+    const finalPos = calculateFinalPosition(
+      token.position,
+      diceValue,
+      player.color
+    );
+
+    if (finalPos.type === 'home_row') {
+      // Entering home row - check overshoot
+      if (finalPos.position > HOME_FINISH_POSITION) {
+        return {
+          success: false,
+          error: 'Move overshoots home',
+          code: ErrorCodes.OVERSHOOT_HOME,
+        };
+      }
+    } else {
+      // Staying on track - check for barriers
+      // Check for barriers in path
+      if (
+        pathContainsBarrier(
+          gameState,
+          token.position,
+          diceValue,
+          player.color,
+          token.id
+        )
+      ) {
+        return {
+          success: false,
+          error: 'Path blocked by barrier',
+          code: ErrorCodes.BARRIER_BLOCKED,
+        };
+      }
+
+      if (hasBarrier(gameState, finalPos.position, token.id)) {
+        return {
+          success: false,
+          error: 'Destination blocked by barrier',
+          code: ErrorCodes.BARRIER_BLOCKED,
+        };
+      }
+    }
+  }
+
+  // Get legal moves and validate this move is in the list
+  const legalMoves = getTokenLegalMoves(token, diceValue, player, gameState);
+  if (legalMoves.length === 0) {
+    return {
+      success: false,
+      error: 'Move not legal',
+      code: ErrorCodes.MOVE_NOT_LEGAL,
+    };
+  }
+
+  const moveInfo = legalMoves[0]; // Should only be one legal destination per token+die
+  let newPosition = moveInfo.position;
+
+  // Set new position based on validated move
+  if (token.position === 'home') {
+    newPosition = player.startCell;
+  } else if (token.inHomeRow) {
+    const newHomePos = token.homeRowPosition + diceValue;
+    if (newHomePos === HOME_FINISH_POSITION) {
+      newPosition = 'finished';
+    } else {
+      newPosition = `home_row:${newHomePos}`;
+    }
+  } else {
+    // Token on main track - use same logic as getTokenLegalMoves
+    const finalPos = calculateFinalPosition(
+      token.position,
+      diceValue,
+      player.color
+    );
+
+    if (finalPos.type === 'home_row') {
+      if (finalPos.position === HOME_FINISH_POSITION) {
+        newPosition = 'finished';
+      } else {
+        newPosition = `home_row:${finalPos.position}`;
+      }
+    } else {
+      newPosition = finalPos.position;
     }
   }
 
   // Execute move
   const oldPosition = token.position;
-  token.position = newPosition;
+  const oldInHomeRow = token.inHomeRow;
+
+  // Update token position
+  if (newPosition === 'finished') {
+    token.finished = true;
+    token.inHomeRow = true;
+    token.homeRowPosition = HOME_FINISH_POSITION;
+    token.position = 'finished';
+    player.finishedTokens += 1;
+  } else if (
+    typeof newPosition === 'string' &&
+    newPosition.startsWith('home_row:')
+  ) {
+    const homePos = parseInt(newPosition.split(':')[1]);
+    token.inHomeRow = true;
+    token.homeRowPosition = homePos;
+    token.position = newPosition;
+
+    if (homePos === HOME_FINISH_POSITION) {
+      token.finished = true;
+      token.position = 'finished';
+      player.finishedTokens += 1;
+    }
+  } else {
+    token.position = newPosition;
+  }
 
   // Mark this dice as used
   gameState.usedDice[diceIndex] = true;
 
   let bonusMove = false;
   let capturedTokens = [];
+  let captureBonus = 0;
 
-  // Check if token reached finish (simplified - cell 68 or final stretch)
-  // In real Ludo, tokens have a final home stretch per color
-  if (token.position === TRACK_LENGTH) {
-    token.finished = true;
-    player.finishedTokens += 1;
-  }
-
-  // Bonus move if rolled a 6 (may be suppressed if chained consumed remaining die and both dice now used)
-  if (diceValue === 6 && !gameState.gameOver) {
-    bonusMove = true;
-  }
-
-  // Capture logic: if landing on an opponent on a non-safe cell, send opponents back to home
-  if (typeof token.position === 'number' && !SAFE_CELLS.has(token.position)) {
+  // Capture logic (Spec Section 3: +20 bonus for capture on non-safe square)
+  if (
+    typeof newPosition === 'number' &&
+    !SAFE_CELLS.has(newPosition) &&
+    !token.inHomeRow
+  ) {
     gameState.players.forEach((p) => {
       if (p.id === playerId) return; // skip self
       p.tokens.forEach((oppToken) => {
-        if (!oppToken.finished && oppToken.position === token.position) {
-          // send opponent token back to home
+        if (!oppToken.finished && oppToken.position === newPosition) {
+          // Capture: send opponent token back to home
           oppToken.position = 'home';
-          // ensure finished flag reset (defensive)
           oppToken.finished = false;
+          oppToken.inHomeRow = false;
+          oppToken.homeRowPosition = null;
           capturedTokens.push({ playerId: p.id, tokenId: oppToken.id });
         }
       });
     });
+
     if (capturedTokens.length > 0 && !gameState.gameOver) {
-      bonusMove = true; // grant extra move for capture
+      captureBonus = CAPTURE_BONUS; // +20 bonus per spec
     }
   }
 
-  // Auto-chain second die when entering from home with a 6 and other die is NOT 6.
-  let chainedMove = null;
-  if (
-    false &&
-    oldPosition === 'home' &&
-    diceValue === HOME_ENTRY_ROLL &&
-    Array.isArray(gameState.pendingDice) &&
-    gameState.pendingDice.length === 2
-  ) {
-    const otherIndex = diceIndex === 0 ? 1 : 0;
-    const otherVal = gameState.pendingDice[otherIndex];
-    if (
-      !gameState.usedDice[otherIndex] &&
-      otherVal &&
-      otherVal !== HOME_ENTRY_ROLL &&
-      otherVal !== 1 && // Do NOT auto-chain a single extra step; let player decide
-      typeof token.position === 'number'
-    ) {
-      const secondOldPosition = token.position;
-      const secondNewPosition = token.position + otherVal;
-      if (secondNewPosition <= TRACK_LENGTH) {
-        token.position = secondNewPosition;
-        gameState.usedDice[otherIndex] = true;
-        chainedMove = {
-          secondDiceIndex: otherIndex,
-          secondDiceValue: otherVal,
-          secondOldPosition,
-          secondNewPosition,
-        };
-      }
-    }
-  }
-
-  // Check if both dice are used (after potential chain application)
+  // Check if both dice are used
   const allDiceUsed = gameState.usedDice.every((used) => used);
-  // If chain consumed second die and both dice used, suppress bonusMove (no extra action expected)
-  if (chainedMove && allDiceUsed) {
-    bonusMove = false;
-  }
 
   gameState.lastActionAt = Date.now();
 
@@ -257,8 +615,9 @@ export function applyMove(gameState, playerId, tokenId, diceIndex) {
     finished: token.finished,
     bonusMove,
     allDiceUsed,
-    chainedMove,
     capturedTokens,
+    captureBonus, // For service to handle bonus move
+    enteredHomeRow: !oldInHomeRow && token.inHomeRow,
   };
 }
 

@@ -103,18 +103,31 @@ export const gameService = {
       gameWon = true;
     }
 
-    // If both dice are used and a bonus move is active (e.g., rolling a 6),
-    // grant an extra roll to the SAME player by clearing pending dice without advancing turn.
+    // Handle capture bonus (+20 from spec Section 3)
+    // Bonus is a separate move that must be handled by the player choosing a token
+    // For now, we track it for the UI to prompt the player
+    let bonusPending = false;
+    if (moveResult.captureBonus && moveResult.captureBonus > 0 && !gameWon) {
+      bonusPending = true;
+      // Store pending bonus in game state for next move
+      gameState.pendingBonus = {
+        playerId,
+        amount: moveResult.captureBonus,
+      };
+    }
+
+    // Check if turn should advance
     let turnAdvanced = false;
-    if (moveResult.allDiceUsed && moveResult.bonusMove && !gameWon) {
+    const allDiceUsed = moveResult.allDiceUsed;
+
+    // If bonus is pending, don't advance turn - player gets bonus move
+    if (bonusPending) {
+      // Clear dice for bonus move
       gameState.pendingDice = null;
       gameState.usedDice = [false, false];
-    } else {
-      // Check if turn should advance (all dice used or game won)
-      if ((shouldAdvanceTurn(gameState) && !moveResult.bonusMove) || gameWon) {
-        advanceTurn(gameState);
-        turnAdvanced = true;
-      }
+    } else if (allDiceUsed && !gameWon) {
+      advanceTurn(gameState);
+      turnAdvanced = true;
     }
 
     roomService.updateGameState(roomId, gameState);
@@ -125,6 +138,7 @@ export const gameService = {
       gameWon,
       gameState,
       turnAdvanced,
+      bonusPending,
       nextPlayer: gameState.players[gameState.currentPlayerIndex].id,
     };
   },
